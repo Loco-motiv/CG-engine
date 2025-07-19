@@ -14,11 +14,13 @@ class SceneManager;
 class Object
 {
 public:
-    Object(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale);
+    Object(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale);
     virtual ~Object() = default;
 
     virtual void Render() = 0;
     virtual void Update() = 0;
+
+    GLint m_ID;
 
     SceneManager* m_sceneManager;
 
@@ -34,7 +36,7 @@ public:
 class ObjectWithTexture : public Object
 {
 public:
-    ObjectWithTexture(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    ObjectWithTexture(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                       Texture l_texture, GLuint l_shininess, GLfloat l_alpha);
     virtual ~ObjectWithTexture() = default;
 
@@ -52,7 +54,7 @@ public:
 class Cube : public ObjectWithTexture
 {
 public:
-    Cube(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    Cube(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
          Texture l_texture, GLuint l_shininess, GLfloat l_alpha);
     ~Cube();
 
@@ -63,7 +65,7 @@ public:
 class Sphere : public ObjectWithTexture
 {
 public:
-    Sphere(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    Sphere(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
            Texture l_texture, GLuint l_shininess, GLfloat l_alpha);
     ~Sphere();
 
@@ -74,7 +76,7 @@ public:
 class LightSource : public Object
 {
 public:
-    LightSource(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    LightSource(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                 sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular);
     virtual ~LightSource() = default;
 
@@ -89,7 +91,7 @@ public:
 class PointLight : public LightSource
 {
 public:
-    PointLight(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    PointLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
     ~PointLight();
@@ -104,7 +106,7 @@ public:
 class DirectionalLight : public LightSource
 {
 public:
-    DirectionalLight(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    DirectionalLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                      sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular);
     ~DirectionalLight();
 
@@ -114,7 +116,7 @@ public:
 class SpotLight : public LightSource
 {
 public:
-    SpotLight(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    SpotLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
               sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
               GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
     ~SpotLight();
@@ -132,7 +134,7 @@ public:
 class LightCube : public PointLight
 {
 public:
-    LightCube(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    LightCube(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
               sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
               GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
     ~LightCube();
@@ -144,7 +146,7 @@ public:
 class LightSphere : public PointLight
 {
 public:
-    LightSphere(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    LightSphere(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                 sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                 GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
     ~LightSphere();
@@ -156,7 +158,7 @@ public:
 class ObjectWithLight : public ObjectWithTexture
 {
 public:
-    ObjectWithLight(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    ObjectWithLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                     Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights);
     ~ObjectWithLight();
 
@@ -169,7 +171,7 @@ public:
 class Lamp : public ObjectWithLight
 {
 public:
-    Lamp(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+    Lamp(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
          Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights);
     ~Lamp();
 
@@ -215,6 +217,7 @@ public:
 
     GLboolean m_flagProjection = false;
 
+    GLint m_objectCount     = 0;
     GLint m_spotLightCount  = 0;
     GLint m_pointLightCount = 0;
 

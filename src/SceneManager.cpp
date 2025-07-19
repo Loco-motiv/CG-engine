@@ -2,14 +2,14 @@
 
 //* Object
 
-Object::Object(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale)
-    : m_sceneManager{ l_sceneManager }, m_position{ l_position }, m_rotation{ l_rotation }, m_scale{ l_scale } {}
+Object::Object(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale)
+    : m_ID{ l_ID }, m_sceneManager{ l_sceneManager }, m_position{ l_position }, m_rotation{ l_rotation }, m_scale{ l_scale } {}
 
 //* ObjectWithTexture
 
-ObjectWithTexture::ObjectWithTexture(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+ObjectWithTexture::ObjectWithTexture(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                                      Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
-    : Object{ l_sceneManager, l_position, l_rotation, l_scale }, m_shininess{ l_shininess }, m_alpha{ l_alpha }
+    : Object{ l_ID, l_sceneManager, l_position, l_rotation, l_scale }, m_shininess{ l_shininess }, m_alpha{ l_alpha }
 {
     m_diffusiveTexture = m_sceneManager->m_sharedContext->graphics->m_textures[l_texture].first;
     m_specularTexture  = m_sceneManager->m_sharedContext->graphics->m_textures[l_texture].second;
@@ -43,9 +43,9 @@ void ObjectWithTexture::Update()
 
 //* Cube
 
-Cube::Cube(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+Cube::Cube(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
            Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
-    : ObjectWithTexture(l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha) {}
+    : ObjectWithTexture(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha) {}
 
 Cube::~Cube() {}
 
@@ -63,9 +63,9 @@ void Cube::Update()
 
 //* Sphere
 
-Sphere::Sphere(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+Sphere::Sphere(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
-    : ObjectWithTexture(l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha) {}
+    : ObjectWithTexture(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha) {}
 
 Sphere::~Sphere() {}
 
@@ -83,9 +83,9 @@ void Sphere::Update()
 
 //* LightSource
 
-LightSource::LightSource(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+LightSource::LightSource(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                          sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular)
-    : Object{ l_sceneManager, l_position, l_rotation, l_scale }, m_ambient{ l_ambient }, m_diffusive{ l_diffusive }, m_specular{ l_specular } {}
+    : Object{ l_ID, l_sceneManager, l_position, l_rotation, l_scale }, m_ambient{ l_ambient }, m_diffusive{ l_diffusive }, m_specular{ l_specular } {}
 
 void LightSource::Update()
 {
@@ -103,10 +103,10 @@ void LightSource::Render() {}
 
 //* PointLight
 
-PointLight::PointLight(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+PointLight::PointLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                        sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                        GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
-    : LightSource{ l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular },
+    : LightSource{ l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular },
       m_constant{ l_constant }, m_linear{ l_linear }, m_quadratic{ l_quadratic } {}
 
 PointLight::~PointLight() {}
@@ -128,9 +128,9 @@ void PointLight::Update()
 
 //* DirectionalLight
 
-DirectionalLight::DirectionalLight(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+DirectionalLight::DirectionalLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                                    sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular)
-    : LightSource{ l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular } {}
+    : LightSource{ l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular } {}
 
 DirectionalLight::~DirectionalLight() {}
 
@@ -151,10 +151,10 @@ void DirectionalLight::Update()
 
 //* SpotLight
 
-SpotLight::SpotLight(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+SpotLight::SpotLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                      sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                      GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
-    : LightSource{ l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular },
+    : LightSource{ l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular },
       m_cutOff{ l_cutOff }, m_outerCutOff{ l_outerCutOff }, m_constant{ l_constant }, m_linear{ l_linear }, m_quadratic{ l_quadratic } {}
 
 SpotLight::~SpotLight() {}
@@ -184,10 +184,10 @@ void SpotLight::Update()
 
 //* LightCube
 
-LightCube::LightCube(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation,
+LightCube::LightCube(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation,
                      sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                      GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
-    : PointLight(l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic) {}
+    : PointLight(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic) {}
 
 LightCube::~LightCube() {}
 
@@ -206,10 +206,10 @@ void LightCube::Update()
 
 //* LightSphere
 
-LightSphere::LightSphere(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation,
+LightSphere::LightSphere(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation,
                          sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                          GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
-    : PointLight(l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic) {}
+    : PointLight(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic) {}
 
 LightSphere::~LightSphere() {}
 
@@ -228,8 +228,9 @@ void LightSphere::Update()
 
 //* ObjectWithLight
 
-ObjectWithLight::ObjectWithLight(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                 Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights) : ObjectWithTexture(l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha), m_lights{ l_lights } {}
+ObjectWithLight::ObjectWithLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                                 Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights)
+    : ObjectWithTexture(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha), m_lights{ l_lights } {}
 
 ObjectWithLight::~ObjectWithLight()
 {
@@ -249,8 +250,9 @@ void ObjectWithLight::Update()
 
 //* Lamp
 
-Lamp::Lamp(SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-           Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights) : ObjectWithLight(l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha, l_lights) {}
+Lamp::Lamp(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+           Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights)
+    : ObjectWithLight(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha, l_lights) {}
 
 Lamp::~Lamp()
 {
@@ -283,21 +285,21 @@ SceneManager::~SceneManager()
 Cube* SceneManager::MakeCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                              Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
 {
-    Cube* cube = new Cube(this, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha);
+    Cube* cube = new Cube(++m_objectCount, this, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha);
     m_objects.push_back(cube);
     return cube;
 }
 
 Sphere* SceneManager::MakeSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
 {
-    Sphere* sphere = new Sphere(this, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha);
+    Sphere* sphere = new Sphere(++m_objectCount, this, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha);
     m_objects.push_back(sphere);
     return sphere;
 }
 
 PointLight* SceneManager::MakePointLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
 {
-    PointLight* pointLight = new PointLight(this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
+    PointLight* pointLight = new PointLight(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
     m_lightSources.push_back(pointLight);
     return pointLight;
 }
@@ -306,7 +308,7 @@ LightCube* SceneManager::MakeLightCube(sf::Vector3f l_position, sf::Vector3f l_r
                                        sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                                        GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
 {
-    LightCube* lightCube = new LightCube(this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
+    LightCube* lightCube = new LightCube(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
     m_lightSources.push_back(lightCube);
     return lightCube;
 }
@@ -315,21 +317,21 @@ LightSphere* SceneManager::MakeLightSphere(sf::Vector3f l_position, sf::Vector3f
                                            sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                                            GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
 {
-    LightSphere* lightSphere = new LightSphere(this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
+    LightSphere* lightSphere = new LightSphere(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
     m_lightSources.push_back(lightSphere);
     return lightSphere;
 }
 
 DirectionalLight* SceneManager::MakeDirectionalLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular)
 {
-    DirectionalLight* dirLight = new DirectionalLight(this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular);
+    DirectionalLight* dirLight = new DirectionalLight(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular);
     m_lightSources.push_back(dirLight);
     return dirLight;
 }
 
 SpotLight* SceneManager::MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular, GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
 {
-    SpotLight* spotLight = new SpotLight(this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_cutOff, l_outerCutOff, l_constant, l_linear, l_quadratic);
+    SpotLight* spotLight = new SpotLight(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_cutOff, l_outerCutOff, l_constant, l_linear, l_quadratic);
     m_lightSources.push_back(spotLight);
     return spotLight;
 }

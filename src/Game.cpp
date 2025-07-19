@@ -28,6 +28,8 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedCon
     // m_GUI.MakeSlider("Left border", &(m_GUI.m_leftBorder), -1, 0.85);
     m_GUI.MakeHUDElement("Time", std::bind([this]()
                                            { return m_elapsedFixed.asSeconds(); }));
+    m_GUI.MakeHUDElement("Object count", std::bind([this]()
+                                                   { return m_sceneManager.m_objectCount; }));
     m_GUI.MakeButton("Rotate switch", std::bind([this]()
                                                 { m_flagRotate = !m_flagRotate; m_rotateAccumulator = 0.0f; }));
     m_GUI.MakeButton("Rotate direction switch", std::bind([this]()
