@@ -80,7 +80,7 @@ void Game::Update()
 
     rotationMatrix = rotationMatrix * translationMatrix2;
 
-    m_sceneManager.Update();
+    m_sceneManager.Update(m_elapsed.asMilliseconds());
 
     MatrixFloat m_scaleMatrix;
     m_scaleMatrix.ScaleXYZ(m_cube->m_scale.x, m_cube->m_scale.y, m_cube->m_scale.z);

@@ -395,7 +395,7 @@ SpotLight* SceneManager::MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_r
 
 void SceneManager::HandleInput()
 {
-    if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
+    if (m_pickingCooldown == 0 and sf::Mouse::isButtonPressed(sf::Mouse::Left))
     {
         sf::Vector2i mousePos = sf::Mouse::getPosition(*m_sharedContext->window->GetWindow());
 
@@ -411,15 +411,16 @@ void SceneManager::HandleInput()
             NDC_for_GUI_check.y < m_sharedContext->GUI->m_elements.back()->m_topBorder - m_sharedContext->GUI->m_elementHeight ||
             NDC_for_GUI_check.y > m_sharedContext->GUI->m_elements.front()->m_topBorder)
         {
-            m_pickingCords.x = pixelX;
-            m_pickingCords.y = pixelY;
-            m_flagPicked     = true;
+            m_pickingCords.x  = pixelX;
+            m_pickingCords.y  = pixelY;
+            m_flagPicked      = true;
+            m_pickingCooldown = 200;
             // std::cout << pixelX << " " << pixelY << '\n';
         }
     }
 }
 
-void SceneManager::Update()
+void SceneManager::Update(GLint l_elapsed)
 {
     m_cameraPosition = m_sharedContext->camera->getPosition();
 
@@ -453,6 +454,18 @@ void SceneManager::Update()
 
     m_sharedContext->graphics->m_shader->SetInt("pointLightCount", m_pointLightCount);
     m_sharedContext->graphics->m_shader->SetInt("spotLightCount", m_spotLightCount);
+
+    if (m_pickingCooldown > 0)
+    {
+        if (m_pickingCooldown - l_elapsed < 0)
+        {
+            m_pickingCooldown = 0;
+        }
+        else
+        {
+            m_pickingCooldown = m_pickingCooldown - l_elapsed;
+        }
+    }
 
     if (m_flagPickedReady == true)
     {

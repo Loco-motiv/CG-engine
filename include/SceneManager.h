@@ -214,7 +214,7 @@ public:
                              GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
 
     void HandleInput();
-    void Update();
+    void Update(GLint l_elapsed);
     void Render();
 
     SharedContext* m_sharedContext;
@@ -237,6 +237,7 @@ public:
     GLint m_pickedObject        = 0;
     GLboolean m_flagPicked      = false;
     GLboolean m_flagPickedReady = false;
+    GLint m_pickingCooldown     = 0;
 
     std::vector<ObjectWithTexture*> m_objects;
     std::vector<LightSource*> m_lightSources;
