@@ -22,6 +22,7 @@ public:
 
     void SetBool(const std::string& name, const GLboolean value) const;
     void SetInt(const std::string& name, const GLint value) const;
+    void SetUInt(const std::string& name, const GLuint value) const;
     void SetFloat(const std::string& name, const GLfloat value) const;
     void SetFloatVec2(const std::string& name, const GLfloat valueX, const GLfloat valueY) const;
     void SetFloatVec3(const std::string& name, const GLfloat valueX, const GLfloat valueY, const GLfloat valueZ) const;

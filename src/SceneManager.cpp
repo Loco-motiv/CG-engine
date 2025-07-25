@@ -29,6 +29,12 @@ void ObjectWithTexture::Render()
     m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
 }
 
+void ObjectWithTexture::RenderPicking()
+{
+    m_sceneManager->m_sharedContext->graphics->m_pickingShader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
+    m_sceneManager->m_sharedContext->graphics->m_pickingShader->SetUInt("objectID", m_ID);
+}
+
 void ObjectWithTexture::Update()
 {
     MatrixFloat m_translateMatrix;
@@ -53,6 +59,15 @@ void Cube::Render()
 {
     ObjectWithTexture::Render();
 
+    m_sceneManager->m_sharedContext->graphics->m_shader->Use();
+    m_sceneManager->m_sharedContext->graphics->DrawCube();
+}
+
+void Cube::RenderPicking()
+{
+    ObjectWithTexture::RenderPicking();
+
+    m_sceneManager->m_sharedContext->graphics->m_pickingShader->Use();
     m_sceneManager->m_sharedContext->graphics->DrawCube();
 }
 
@@ -73,6 +88,15 @@ void Sphere::Render()
 {
     ObjectWithTexture::Render();
 
+    m_sceneManager->m_sharedContext->graphics->m_shader->Use();
+    m_sceneManager->m_sharedContext->graphics->DrawSphere();
+}
+
+void Sphere::RenderPicking()
+{
+    ObjectWithTexture::RenderPicking();
+
+    m_sceneManager->m_sharedContext->graphics->m_pickingShader->Use();
     m_sceneManager->m_sharedContext->graphics->DrawSphere();
 }
 
@@ -100,6 +124,13 @@ void LightSource::Update()
 }
 
 void LightSource::Render() {}
+
+void LightSource::RenderPicking()
+{
+    // TODO make smol cube rendering
+    m_sceneManager->m_sharedContext->graphics->m_pickingShader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
+    m_sceneManager->m_sharedContext->graphics->m_pickingShader->SetUInt("objectID", m_ID);
+}
 
 //* PointLight
 
@@ -196,7 +227,16 @@ void LightCube::Render()
     m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
     m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->SetFloatVec3("lightColor", m_specular.x, m_specular.y, m_specular.z);
 
+    m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->Use();
     m_sceneManager->m_sharedContext->graphics->DrawLightSourceCube();
+}
+
+void LightCube::RenderPicking()
+{
+    LightSource::RenderPicking();
+
+    m_sceneManager->m_sharedContext->graphics->m_pickingShader->Use();
+    m_sceneManager->m_sharedContext->graphics->DrawCube();
 }
 
 void LightCube::Update()
@@ -218,6 +258,15 @@ void LightSphere::Render()
     m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
     m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->SetFloatVec3("lightColor", m_specular.x, m_specular.y, m_specular.z);
 
+    m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->Use();
+    m_sceneManager->m_sharedContext->graphics->DrawLightSourceSphere();
+}
+
+void LightSphere::RenderPicking()
+{
+    LightSource::RenderPicking();
+
+    m_sceneManager->m_sharedContext->graphics->m_pickingShader->Use();
     m_sceneManager->m_sharedContext->graphics->DrawLightSourceSphere();
 }
 
@@ -244,6 +293,10 @@ void ObjectWithLight::Render()
 {
 }
 
+void ObjectWithLight::RenderPicking()
+{
+}
+
 void ObjectWithLight::Update()
 {
 }
@@ -259,6 +312,10 @@ Lamp::~Lamp()
 }
 
 void Lamp::Render()
+{
+}
+
+void Lamp::RenderPicking()
 {
 }
 
@@ -336,6 +393,32 @@ SpotLight* SceneManager::MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_r
     return spotLight;
 }
 
+void SceneManager::HandleInput()
+{
+    if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
+    {
+        sf::Vector2i mousePos = sf::Mouse::getPosition(*m_sharedContext->window->GetWindow());
+
+        unsigned int windowWidth  = m_sharedContext->window->GetWindowSize().x;
+        unsigned int windowHeight = m_sharedContext->window->GetWindowSize().y;
+
+        GLuint pixelX = (GLuint)(((float)mousePos.x / windowWidth) * m_sharedContext->graphics->m_pickingWidth);
+        GLuint pixelY = (GLuint)(((float)(windowHeight - 1 - mousePos.y) / windowHeight) * m_sharedContext->graphics->m_pickingHeight);
+
+        sf::Vector2f NDC_for_GUI_check = m_sharedContext->GUI->ConvertScreenCoordinates(sf::Mouse::getPosition(*m_sharedContext->window->GetWindow())); // Используем SFML координаты здесь, если GUI ожидает их
+        if (NDC_for_GUI_check.x < m_sharedContext->GUI->m_leftBorder ||
+            NDC_for_GUI_check.x > m_sharedContext->GUI->m_rightBorder ||
+            NDC_for_GUI_check.y < m_sharedContext->GUI->m_elements.back()->m_topBorder - m_sharedContext->GUI->m_elementHeight ||
+            NDC_for_GUI_check.y > m_sharedContext->GUI->m_elements.front()->m_topBorder)
+        {
+            m_pickingCords.x = pixelX;
+            m_pickingCords.y = pixelY;
+            m_flagPicked     = true;
+            // std::cout << pixelX << " " << pixelY << '\n';
+        }
+    }
+}
+
 void SceneManager::Update()
 {
     m_cameraPosition = m_sharedContext->camera->getPosition();
@@ -370,10 +453,30 @@ void SceneManager::Update()
 
     m_sharedContext->graphics->m_shader->SetInt("pointLightCount", m_pointLightCount);
     m_sharedContext->graphics->m_shader->SetInt("spotLightCount", m_spotLightCount);
+
+    if (m_flagPickedReady == true)
+    {
+        m_pickedObject = m_sharedContext->graphics->GetPickingResult();
+        if (m_pickedObject != 0)
+        {
+            std::cout << m_pickedObject << '\n';
+        }
+        m_flagPickedReady = false;
+    }
 }
 
 void SceneManager::Render()
 {
+    if (m_flagPicked == true)
+    {
+        RenderPicking();
+
+        m_sharedContext->graphics->ReadPixel(m_pickingCords.x, m_pickingCords.y);
+
+        m_flagPicked      = false;
+        m_flagPickedReady = true;
+    }
+
     for (const auto elem : m_lightSources)
     {
         elem->Render();
@@ -383,4 +486,21 @@ void SceneManager::Render()
     {
         elem->Render();
     }
+}
+
+void SceneManager::RenderPicking()
+{
+    m_sharedContext->graphics->BeginPickingDraw();
+
+    for (const auto elem : m_lightSources)
+    {
+        elem->RenderPicking();
+    }
+
+    for (const auto elem : m_objects)
+    {
+        elem->RenderPicking();
+    }
+
+    m_sharedContext->graphics->EndPickingDraw(m_sharedContext->window->GetWindowSize().x, m_sharedContext->window->GetWindowSize().y);
 }

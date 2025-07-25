@@ -7,6 +7,7 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedCon
     m_sharedContext.graphics   = &m_graphics;
     m_sharedContext.camera     = &m_camera;
     m_sharedContext.window     = &m_window;
+    m_sharedContext.GUI        = &m_GUI;
     m_sharedContext.shader     = m_graphics.m_shader;
     m_sharedContext.textShader = m_graphics.m_textShader;
     m_sharedContext.GUIShader  = m_graphics.m_GUIShader;
@@ -29,7 +30,7 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedCon
     m_GUI.MakeHUDElement("Time", std::bind([this]()
                                            { return m_elapsedFixed.asSeconds(); }));
     m_GUI.MakeHUDElement("Object count", std::bind([this]()
-                                                   { return m_sceneManager.m_objectCount; }));
+                                                   { return std::to_string(m_sceneManager.m_objectCount); }));
     m_GUI.MakeButton("Rotate switch", std::bind([this]()
                                                 { m_flagRotate = !m_flagRotate; m_rotateAccumulator = 0.0f; }));
     m_GUI.MakeButton("Rotate direction switch", std::bind([this]()
@@ -41,6 +42,8 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedCon
                                                  { m_flagFollow = !m_flagFollow; }));
     m_GUI.MakeSlider("Radius", &m_radius, 0, 10);
     m_GUI.MakeSlider("Camera distance", &m_cameraDistance, 0, 20);
+    m_GUI.MakeHUDElement("Picked object", std::bind([this]()
+                                                    { return std::to_string(m_sceneManager.m_pickedObject); }));
 
     // m_GUI.MakeSlider("Shininess", &m_cube->m_shininess, 0, 256);
     // m_GUI.MakeSlider("Near distance", &m_sceneManager.m_nearDistance, 0.1, 10);
@@ -106,6 +109,8 @@ Window* Game::GetWindow()
 
 void Game::HandleInput()
 {
+    m_sceneManager.HandleInput();
+
     m_camera.HandleInput();
 
     m_GUI.HandleInput();

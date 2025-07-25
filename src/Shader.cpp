@@ -73,6 +73,12 @@ void Shader::SetInt(const std::string& name, const GLint value) const
     glUniform1i(GetUniformLocation(name), value);
 }
 
+void Shader::SetUInt(const std::string& name, const GLuint value) const
+{
+    Use();
+    glUniform1ui(GetUniformLocation(name), value);
+}
+
 void Shader::SetFloat(const std::string& name, const GLfloat value) const
 {
     Use();

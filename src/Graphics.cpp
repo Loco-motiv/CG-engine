@@ -7,17 +7,109 @@ Graphics::Graphics()
     ConfigureFreeType();
     MakeVAOs();
     MakeTextures();
+    MakePBOs();
+    MakeFBOs();
 }
 
 Graphics::~Graphics()
 {
     FreeObjects();
 }
+void APIENTRY
+glDebugOutput(GLenum source,
+              GLenum type,
+              unsigned int id,
+              GLenum severity,
+              GLsizei length,
+              const char* message,
+              const void* userParam)
+{
+    // ignore non-significant error/warning codes
+    if (id == 131169 || id == 131185 || id == 131218 || id == 131204)
+    {
+        return;
+    }
+
+    std::cout << "---------------" << std::endl;
+    std::cout << "Debug message (" << id << "): " << message << std::endl;
+
+    switch (source)
+    {
+    case GL_DEBUG_SOURCE_API:
+        std::cout << "Source: API";
+        break;
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+        std::cout << "Source: Window System";
+        break;
+    case GL_DEBUG_SOURCE_SHADER_COMPILER:
+        std::cout << "Source: Shader Compiler";
+        break;
+    case GL_DEBUG_SOURCE_THIRD_PARTY:
+        std::cout << "Source: Third Party";
+        break;
+    case GL_DEBUG_SOURCE_APPLICATION:
+        std::cout << "Source: Application";
+        break;
+    case GL_DEBUG_SOURCE_OTHER:
+        std::cout << "Source: Other";
+        break;
+    }
+    std::cout << std::endl;
+
+    switch (type)
+    {
+    case GL_DEBUG_TYPE_ERROR:
+        std::cout << "Type: Error";
+        break;
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+        std::cout << "Type: Deprecated Behaviour";
+        break;
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+        std::cout << "Type: Undefined Behaviour";
+        break;
+    case GL_DEBUG_TYPE_PORTABILITY:
+        std::cout << "Type: Portability";
+        break;
+    case GL_DEBUG_TYPE_PERFORMANCE:
+        std::cout << "Type: Performance";
+        break;
+    case GL_DEBUG_TYPE_MARKER:
+        std::cout << "Type: Marker";
+        break;
+    case GL_DEBUG_TYPE_PUSH_GROUP:
+        std::cout << "Type: Push Group";
+        break;
+    case GL_DEBUG_TYPE_POP_GROUP:
+        std::cout << "Type: Pop Group";
+        break;
+    case GL_DEBUG_TYPE_OTHER:
+        std::cout << "Type: Other";
+        break;
+    }
+    std::cout << std::endl;
+
+    switch (severity)
+    {
+    case GL_DEBUG_SEVERITY_HIGH:
+        std::cout << "Severity: high";
+        break;
+    case GL_DEBUG_SEVERITY_MEDIUM:
+        std::cout << "Severity: medium";
+        break;
+    case GL_DEBUG_SEVERITY_LOW:
+        std::cout << "Severity: low";
+        break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION:
+        std::cout << "Severity: notification";
+        break;
+    }
+    std::cout << std::endl;
+    std::cout << std::endl;
+}
 
 void Graphics::ConfigureOpenGL()
 {
     gladLoadGL();
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
     glEnable(GL_CULL_FACE);  //* enable culling faces
     glCullFace(GL_BACK);     //* cull back face
@@ -28,6 +120,17 @@ void Graphics::ConfigureOpenGL()
 
     glEnable(GL_BLEND);      //* enable blending
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    int flags;
+    glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+
+    if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(glDebugOutput, nullptr);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+    }
 }
 
 void Graphics::ConfigureFreeType()
@@ -110,6 +213,7 @@ void Graphics::MakeShaders()
     MakeShader("shaders/Text.vert", "shaders/Text.frag", m_textShader);
     MakeShader("shaders/LightSource.vert", "shaders/LightSource.frag", m_lightSourceShader);
     MakeShader("shaders/GUI.vert", "shaders/GUI.frag", m_GUIShader);
+    MakeShader("shaders/Picking.vert", "shaders/Picking.frag", m_pickingShader);
 }
 
 void Graphics::MakeVAOs()
@@ -127,6 +231,16 @@ void Graphics::MakeTextures()
 {
     m_textures.push_back(std::make_pair(MakeTexture("resources/textures/diamond_ore.png"),
                                         MakeTexture("resources/textures/diamond_ore_spec.png")));
+}
+
+void Graphics::MakePBOs()
+{
+    MakePickingPBO();
+}
+
+void Graphics::MakeFBOs()
+{
+    MakePickingFBO(m_pickingWidth, m_pickingHeight);
 }
 
 void Graphics::MakeShader(const GLchar* vertexPath, const GLchar* fragmentPath, Shader*& l_shader)
@@ -381,6 +495,42 @@ void Graphics::MakeRectangleVAO()
     glEnableVertexArrayAttrib(m_rectangleVAO, 1);
 }
 
+void Graphics::MakePickingPBO()
+{
+    glCreateBuffers(1, &m_pickingPBO);
+    glNamedBufferData(m_pickingPBO, sizeof(GLuint), nullptr, GL_STREAM_READ);
+}
+
+void Graphics::MakePickingFBO(GLuint l_width, GLuint l_height)
+{
+    glCreateFramebuffers(1, &m_pickingFBO);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_pickingColorTexture);
+    glTextureStorage2D(m_pickingColorTexture, 1, GL_R32UI, l_width, l_height);
+
+    glNamedFramebufferTexture(m_pickingFBO, GL_COLOR_ATTACHMENT0,
+                              m_pickingColorTexture, 0);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_pickingDepthTexture);
+    glTextureStorage2D(m_pickingDepthTexture, 1, GL_DEPTH_COMPONENT32F, l_width, l_height);
+
+    glNamedFramebufferTexture(m_pickingFBO, GL_DEPTH_ATTACHMENT,
+                              m_pickingDepthTexture, 0);
+
+    glNamedFramebufferReadBuffer(m_pickingFBO, GL_COLOR_ATTACHMENT0);
+
+    glNamedFramebufferDrawBuffer(m_pickingFBO, GL_COLOR_ATTACHMENT0);
+
+    const GLenum fboStatus = glCheckNamedFramebufferStatus(m_pickingFBO, GL_FRAMEBUFFER);
+    if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
+    {
+        std::cout << "ERROR::FRAMEBUFFER: not complete" << '\n';
+    }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void Graphics::MakeSphereVAO()
 {
     std::vector<GLfloat> vertices;
@@ -526,34 +676,29 @@ void Graphics::MakeLightSourceSphereVAO()
 void Graphics::DrawRectangle()
 {
     glBindVertexArray(m_rectangleVAO);
-    m_GUIShader->Use();
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
 void Graphics::DrawSphere()
 {
     glBindVertexArray(m_sphereVAO);
-    m_shader->Use();
     glDrawElements(GL_TRIANGLES, m_sphereIndexCount, GL_UNSIGNED_INT, 0);
 }
 
 void Graphics::DrawLightSourceSphere()
 {
     glBindVertexArray(m_lightSourceSphereVAO);
-    m_lightSourceShader->Use();
     glDrawElements(GL_TRIANGLES, m_sphereIndexCount, GL_UNSIGNED_INT, 0);
 }
 
 void Graphics::DrawCube()
 {
-    m_shader->Use();
     glBindVertexArray(m_cubeVAO);
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 }
 
 void Graphics::DrawLightSourceCube()
 {
-    m_lightSourceShader->Use();
     glBindVertexArray(m_lightSourceCubeVAO);
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 }
@@ -622,4 +767,72 @@ sf::Vector2f Graphics::GetTextDimensions(const std::string& text, GLfloat sx, GL
 GLfloat Graphics::GetMaxTextHeight(GLfloat sy) const
 {
     return m_maxTextHeight * sy;
+}
+
+void Graphics::BeginPickingDraw()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, m_pickingFBO);
+    glViewport(0, 0, m_pickingWidth, m_pickingHeight);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Graphics::EndPickingDraw(GLuint l_width, GLuint l_height)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, l_width, l_height);
+}
+
+void Graphics::ReadPixel(GLuint x, GLuint y)
+{
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pickingPBO);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_pickingFBO);
+    glReadPixels(x, y, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+    // if (m_pickingFence)
+    // {
+    //     glDeleteSync(m_pickingFence);
+    // }
+    // m_pickingFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+}
+
+GLuint Graphics::GetPickingResult()
+{
+    // if (!m_pickingFence)
+    // {
+    //     return 0;
+    // }
+
+    // GLenum syncStatus = glClientWaitSync(m_pickingFence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
+
+    // std::cout << "aboba" << '\n';
+
+    // std::cout << syncStatus << '\n';
+    // std::cout << GL_ALREADY_SIGNALED << '\n';
+    // std::cout << GL_TIMEOUT_EXPIRED << '\n';
+    // std::cout << GL_CONDITION_SATISFIED << '\n';
+    // std::cout << GL_WAIT_FAILED << '\n';
+
+    // std::cout << "aboba2" << '\n';
+    // if (syncStatus == GL_ALREADY_SIGNALED || syncStatus == GL_CONDITION_SATISFIED)
+    // {
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pickingPBO);
+
+    const GLuint* pixelData = (const GLuint*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    GLuint objectID         = 0;
+    if (pixelData)
+    {
+        objectID = pixelData[0];
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+    }
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+    // glDeleteSync(m_pickingFence);
+    // m_pickingFence = 0;
+
+    return objectID;
+    // }
+    // return 0;
 }

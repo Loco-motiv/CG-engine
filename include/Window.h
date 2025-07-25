@@ -2,6 +2,7 @@
 
 #include <SFML/Window.hpp>
 #include <glad/glad.h>
+#include <iostream>
 
 class Window
 {

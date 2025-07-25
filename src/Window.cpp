@@ -25,9 +25,9 @@ void Window::Create()
     settings.depthBits         = 32;
     settings.stencilBits       = 8;
     settings.antialiasingLevel = 8;
-    settings.majorVersion      = 4; //* opengl 4.6
-    settings.minorVersion      = 6; //* opengl 4.6
-    settings.attributeFlags    = sf::ContextSettings::Attribute::Core;
+    settings.majorVersion      = 4;                                                      //* opengl 4.6
+    settings.minorVersion      = 6;                                                      //* opengl 4.6
+    settings.attributeFlags    = sf::ContextSettings::Core | sf::ContextSettings::Debug; // TODO remove debug
 
     auto style = (m_isFullscreen ? sf::Style::Fullscreen : sf::Style::Default);
     m_window.create(sf::VideoMode(m_windowSize.x, m_windowSize.y), m_windowTitle, style, settings);
@@ -81,6 +81,7 @@ sf::Window* Window::GetWindow() { return &m_window; }
 
 void Window::BeginDraw()
 {
+    glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //* clear color buffer
 }
 

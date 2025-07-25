@@ -3,12 +3,14 @@
 #include "Matrix.h"
 #include "SharedContext.h"
 
+#include <SFML/System/Vector2.hpp>
 #include <SFML/Window/Keyboard.hpp>
 #include <functional>
 #include <string>
 #include <vector>
 
 class GUI;
+class SharedContext;
 
 class GUIElement
 {
@@ -64,6 +66,7 @@ class HUD : public GUIElement
 public:
     HUD(std::string l_name, GLdouble* l_currentValue, GLdouble l_topBorder, GUI* l_GUI);
     HUD(std::string l_name, std::function<GLfloat()> l_getFunction, GLdouble l_topBorder, GUI* l_GUI);
+    HUD(std::string l_name, std::function<std::string()> l_getStringFunction, GLdouble l_topBorder, GUI* l_GUI);
     ~HUD();
 
     void HandleInput(GLdouble xCoordinate, GLdouble yCoordinate);
@@ -71,8 +74,10 @@ public:
     void Update(GLint l_elapsed);
 
 private:
+    std::string m_text;
     GLdouble* m_currentValue = nullptr;
     std::function<GLfloat()> m_getFunction;
+    std::function<std::string()> m_getStringFunction;
 };
 
 class GUI
@@ -95,6 +100,7 @@ public:
     void MakeSlider(std::string l_name, GLdouble* l_currentValue, GLdouble l_minValue, GLdouble l_maxValue);
     void MakeHUDElement(std::string l_name, GLdouble* l_currentValue);
     void MakeHUDElement(std::string l_name, std::function<GLfloat()> l_getFunction);
+    void MakeHUDElement(std::string l_name, std::function<std::string()> l_getStringFunction);
 
     void Update(GLint l_elapsed);
     void Render();
@@ -102,7 +108,8 @@ public:
 
     sf::Vector2f ConvertScreenCoordinates(sf::Vector2i&& l_point);
 
+    std::vector<GUIElement*> m_elements;
+
 private:
     GLdouble m_topBorder = 1.0f - m_elementGap / 2;
-    std::vector<GUIElement*> m_elements;
 };

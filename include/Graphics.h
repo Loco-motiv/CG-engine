@@ -31,6 +31,7 @@ public:
     Shader* m_textShader;
     Shader* m_lightSourceShader;
     Shader* m_GUIShader;
+    Shader* m_pickingShader;
 
     std::vector<std::pair<GLuint, GLuint>> m_textures;
 
@@ -45,10 +46,20 @@ public:
     sf::Vector2f GetTextDimensions(const std::string& text, GLfloat sx, GLfloat sy, GLfloat scale);
     GLfloat GetMaxTextHeight(GLfloat sy) const;
 
+    void BeginPickingDraw();
+    void EndPickingDraw(GLuint l_width, GLuint l_height);
+    void ReadPixel(GLuint x, GLuint y);
+    GLuint GetPickingResult();
+
+    GLuint m_pickingWidth  = 800;
+    GLuint m_pickingHeight = 600;
+
 private:
     void MakeShaders();
     void MakeVAOs();
     void MakeTextures();
+    void MakePBOs();
+    void MakeFBOs();
 
     void MakeShader(const GLchar* vertexPath, const GLchar* fragmentPath, Shader*& l_shader);
     GLuint MakeTexture(char const* path);
@@ -60,6 +71,10 @@ private:
     void MakeLightSourceSphereVAO();
     void MakeFullScreenRectangleVAO();
     void MakeRectangleVAO();
+
+    void MakePickingFBO(GLuint l_width, GLuint l_height);
+
+    void MakePickingPBO();
 
     void FreeObjects();
 
@@ -79,12 +94,19 @@ private:
     GLuint m_lightSourceSphereVAO;
     GLuint m_sphereVBO;
     GLuint m_sphereIBO;
+
     GLuint m_sphereIndexCount;
 
     GLuint m_textVAO;
     GLuint m_textVBO;
 
     GLuint m_fullScreenRectangleVAO;
+
+    GLuint m_pickingColorTexture;
+    GLuint m_pickingDepthTexture;
+    GLuint m_pickingFBO;
+    GLuint m_pickingPBO;
+    GLsync m_pickingFence = 0;
 
     FT_Library m_ft;
     FT_Face m_face;

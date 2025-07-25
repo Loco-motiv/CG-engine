@@ -17,8 +17,9 @@ public:
     Object(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale);
     virtual ~Object() = default;
 
-    virtual void Render() = 0;
-    virtual void Update() = 0;
+    virtual void Render()        = 0;
+    virtual void RenderPicking() = 0;
+    virtual void Update()        = 0;
 
     GLint m_ID;
 
@@ -41,6 +42,7 @@ public:
     virtual ~ObjectWithTexture() = default;
 
     void Render() override;
+    void RenderPicking() override;
     void Update() override;
 
     GLuint m_diffusiveTexture;
@@ -59,6 +61,7 @@ public:
     ~Cube();
 
     void Render() override;
+    void RenderPicking() override;
     void Update() override;
 };
 
@@ -70,6 +73,7 @@ public:
     ~Sphere();
 
     void Render() override;
+    void RenderPicking() override;
     void Update() override;
 };
 
@@ -82,6 +86,7 @@ public:
 
     void Update() override;
     void Render() override;
+    void RenderPicking() override;
 
     sf::Vector3<GLdouble> m_ambient;
     sf::Vector3<GLdouble> m_diffusive;
@@ -140,6 +145,7 @@ public:
     ~LightCube();
 
     void Render() override;
+    void RenderPicking() override;
     void Update() override;
 };
 
@@ -152,6 +158,7 @@ public:
     ~LightSphere();
 
     void Render() override;
+    void RenderPicking() override;
     void Update() override;
 };
 
@@ -163,6 +170,7 @@ public:
     ~ObjectWithLight();
 
     void Render() override;
+    void RenderPicking() override;
     void Update() override;
 
     std::vector<LightSource*> m_lights;
@@ -176,6 +184,7 @@ public:
     ~Lamp();
 
     void Render() override;
+    void RenderPicking() override;
     void Update() override;
 };
 
@@ -203,6 +212,8 @@ public:
     SpotLight* MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
                              sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
                              GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
+
+    void HandleInput();
     void Update();
     void Render();
 
@@ -221,6 +232,15 @@ public:
     GLint m_spotLightCount  = 0;
     GLint m_pointLightCount = 0;
 
+    sf::Vector2f m_pickingCords;
+
+    GLint m_pickedObject        = 0;
+    GLboolean m_flagPicked      = false;
+    GLboolean m_flagPickedReady = false;
+
     std::vector<ObjectWithTexture*> m_objects;
     std::vector<LightSource*> m_lightSources;
+
+private:
+    void RenderPicking();
 };

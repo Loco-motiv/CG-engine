@@ -47,6 +47,7 @@ void Button::Render()
         m_GUI->m_sharedContext->textShader->SetFloat("alpha", 0.5f);
     }
 
+    m_GUI->m_sharedContext->graphics->m_GUIShader->Use();
     m_GUI->m_sharedContext->graphics->DrawRectangle();
 
     sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_name,
@@ -112,6 +113,7 @@ void Slider::Render()
 
     m_GUI->m_sharedContext->GUIShader->SetFloatMatrix("transformMatrix",
                                                       transformMatrix.GetArray());
+    m_GUI->m_sharedContext->graphics->m_GUIShader->Use();
     m_GUI->m_sharedContext->graphics->DrawRectangle();
 
     MatrixFloat sliderTransformMatrix;
@@ -122,6 +124,7 @@ void Slider::Render()
 
     sliderTransformMatrix.Move(currentNDC, (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f, 0.0f);
     m_GUI->m_sharedContext->GUIShader->SetFloatMatrix("transformMatrix", sliderTransformMatrix.GetArray());
+    m_GUI->m_sharedContext->graphics->m_GUIShader->Use();
     m_GUI->m_sharedContext->graphics->DrawRectangle();
 
     sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_name + ": " + std::to_string(*m_currentValue),
@@ -167,27 +170,42 @@ HUD::HUD(std::string l_name, GLdouble* l_currentValue, GLdouble l_topBorder, GUI
 HUD::HUD(std::string l_name, std::function<GLfloat()> l_getFunction, GLdouble l_topBorder, GUI* l_GUI)
     : GUIElement{ l_name, l_topBorder, l_GUI }, m_getFunction{ l_getFunction } {}
 
+HUD::HUD(std::string l_name, std::function<std::string()> l_getStringFunction, GLdouble l_topBorder, GUI* l_GUI)
+    : GUIElement{ l_name, l_topBorder, l_GUI }, m_getStringFunction{ l_getStringFunction } {}
+
 HUD::~HUD() {}
 
 void HUD::HandleInput(GLdouble xCoordinate, GLdouble yCoordinate) {}
 
 void HUD::Render()
 {
-    GLfloat printValue;
-    if (m_currentValue == nullptr)
+    if (m_name != "")
     {
-        printValue = m_getFunction();
+        m_text = m_name + ": ";
     }
     else
     {
-        printValue = *m_currentValue;
+        m_text = "";
     }
 
-    sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_name + ": " + std::to_string(printValue),
+    if (m_getStringFunction != nullptr)
+    {
+        m_text += m_getStringFunction();
+    }
+    else if (m_currentValue == nullptr)
+    {
+        m_text += std::to_string(m_getFunction());
+    }
+    else
+    {
+        m_text += std::to_string(*m_currentValue);
+    }
+
+    sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_text,
                                                                                 m_GUI->m_NDCTransformerX,
                                                                                 m_GUI->m_NDCTransformerY,
                                                                                 m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY));
-    m_GUI->m_sharedContext->graphics->RenderText(m_name + ": " + std::to_string(printValue), (m_GUI->m_leftBorder + m_GUI->m_elementGap / 2.0f),
+    m_GUI->m_sharedContext->graphics->RenderText(m_text, (m_GUI->m_leftBorder + m_GUI->m_elementGap / 2.0f),
                                                  m_topBorder - (m_GUI->m_elementHeight + textSize.y) / 2.0f,
                                                  m_GUI->m_NDCTransformerX,
                                                  m_GUI->m_NDCTransformerY,
@@ -238,6 +256,14 @@ void GUI::MakeHUDElement(std::string l_name, GLdouble* l_currentValue)
 void GUI::MakeHUDElement(std::string l_name, std::function<GLfloat()> l_getFunction)
 {
     HUD* newButton = new HUD(l_name, l_getFunction, m_topBorder, this);
+
+    m_topBorder -= m_elementHeight;
+    m_elements.push_back(newButton);
+}
+
+void GUI::MakeHUDElement(std::string l_name, std::function<std::string()> l_getStringFunction)
+{
+    HUD* newButton = new HUD(l_name, l_getStringFunction, m_topBorder, this);
 
     m_topBorder -= m_elementHeight;
     m_elements.push_back(newButton);

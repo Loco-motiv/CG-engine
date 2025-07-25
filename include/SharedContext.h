@@ -1,10 +1,12 @@
 #pragma once
 
 #include "Camera.h"
+#include "GUI.h"
 #include "Graphics.h"
 #include "Window.h"
 
 class Camera;
+class GUI;
 
 struct SharedContext
 {
@@ -12,6 +14,7 @@ struct SharedContext
     Window* window;
     Graphics* graphics;
     Camera* camera;
+    GUI* GUI;
     Shader* shader;
     Shader* textShader;
     Shader* GUIShader;
