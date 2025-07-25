@@ -791,48 +791,39 @@ void Graphics::ReadPixel(GLuint x, GLuint y)
     glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-    // if (m_pickingFence)
-    // {
-    //     glDeleteSync(m_pickingFence);
-    // }
-    // m_pickingFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (m_pickingFence)
+    {
+        glDeleteSync(m_pickingFence);
+    }
+    m_pickingFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 }
 
 GLuint Graphics::GetPickingResult()
 {
-    // if (!m_pickingFence)
-    // {
-    //     return 0;
-    // }
-
-    // GLenum syncStatus = glClientWaitSync(m_pickingFence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
-
-    // std::cout << "aboba" << '\n';
-
-    // std::cout << syncStatus << '\n';
-    // std::cout << GL_ALREADY_SIGNALED << '\n';
-    // std::cout << GL_TIMEOUT_EXPIRED << '\n';
-    // std::cout << GL_CONDITION_SATISFIED << '\n';
-    // std::cout << GL_WAIT_FAILED << '\n';
-
-    // std::cout << "aboba2" << '\n';
-    // if (syncStatus == GL_ALREADY_SIGNALED || syncStatus == GL_CONDITION_SATISFIED)
-    // {
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pickingPBO);
-
-    const GLuint* pixelData = (const GLuint*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-    GLuint objectID         = 0;
-    if (pixelData)
+    if (!m_pickingFence)
     {
-        objectID = pixelData[0];
-        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        return 0;
     }
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
-    // glDeleteSync(m_pickingFence);
-    // m_pickingFence = 0;
+    GLenum syncStatus = glClientWaitSync(m_pickingFence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
 
-    return objectID;
-    // }
-    // return 0;
+    if (syncStatus == GL_ALREADY_SIGNALED || syncStatus == GL_CONDITION_SATISFIED)
+    {
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pickingPBO);
+
+        const GLuint* pixelData = (const GLuint*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+        GLuint objectID         = 0;
+        if (pixelData)
+        {
+            objectID = pixelData[0];
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+
+        glDeleteSync(m_pickingFence);
+        m_pickingFence = 0;
+
+        return objectID;
+    }
+    return 0;
 }
