@@ -1,396 +1,86 @@
 #include "SceneManager.h"
 
-//* Object
-
-Object::Object(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale)
-    : m_ID{ l_ID }, m_sceneManager{ l_sceneManager }, m_position{ l_position }, m_rotation{ l_rotation }, m_scale{ l_scale } {}
-
-//* ObjectWithTexture
-
-ObjectWithTexture::ObjectWithTexture(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                     Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
-    : Object{ l_ID, l_sceneManager, l_position, l_rotation, l_scale }, m_shininess{ l_shininess }, m_alpha{ l_alpha }
+SceneManager::SceneManager(SharedContext* l_sharedContext) : m_sharedContext{ l_sharedContext },
+                                                             m_camera(-1, l_sharedContext, 30.0f, 0.05f, 0.3f,
+                                                                      { 0.0f, 0.0f, 0.0f },
+                                                                      { 0.0f, 0.0f, 3.0f }, { 1.0f, 1.0f, 1.0f })
 {
-    m_diffusiveTexture = m_sceneManager->m_sharedContext->graphics->m_textures[l_texture].first;
-    m_specularTexture  = m_sceneManager->m_sharedContext->graphics->m_textures[l_texture].second;
+    m_sharedContext->camera = &m_camera;
 }
-
-void ObjectWithTexture::Render()
-{
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetDiffAndSpecTextures(m_diffusiveTexture, m_specularTexture);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("material.shininess", m_shininess);
-
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("viewPosition",
-                                                                      m_sceneManager->m_cameraPosition.x,
-                                                                      m_sceneManager->m_cameraPosition.y,
-                                                                      m_sceneManager->m_cameraPosition.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatMatrix("modelMatrix", m_modelMatrix.GetArray());
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("alpha", m_alpha);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
-}
-
-void ObjectWithTexture::RenderPicking()
-{
-    m_sceneManager->m_sharedContext->graphics->m_pickingShader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
-    m_sceneManager->m_sharedContext->graphics->m_pickingShader->SetUInt("objectID", m_ID);
-}
-
-void ObjectWithTexture::Update()
-{
-    MatrixFloat m_translateMatrix;
-    MatrixFloat m_rotateMatrix;
-    MatrixFloat m_scaleMatrix;
-    m_translateMatrix.Move(m_position.x, m_position.y, m_position.z);
-    m_rotateMatrix.Rotate(m_rotation.x, m_rotation.y, m_rotation.z);
-    m_scaleMatrix.ScaleXYZ(m_scale.x, m_scale.y, m_scale.z);
-    m_modelMatrix     = m_translateMatrix * m_rotateMatrix * m_scaleMatrix;
-    m_transformMatrix = m_sceneManager->m_projectionMatrix * m_sceneManager->m_viewMatrix * m_modelMatrix;
-}
-
-//* Cube
-
-Cube::Cube(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-           Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
-    : ObjectWithTexture(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha) {}
-
-Cube::~Cube() {}
-
-void Cube::Render()
-{
-    ObjectWithTexture::Render();
-
-    m_sceneManager->m_sharedContext->graphics->m_shader->Use();
-    m_sceneManager->m_sharedContext->graphics->DrawCube();
-}
-
-void Cube::RenderPicking()
-{
-    ObjectWithTexture::RenderPicking();
-
-    m_sceneManager->m_sharedContext->graphics->m_pickingShader->Use();
-    m_sceneManager->m_sharedContext->graphics->DrawCube();
-}
-
-void Cube::Update()
-{
-    ObjectWithTexture::Update();
-}
-
-//* Sphere
-
-Sphere::Sphere(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-               Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
-    : ObjectWithTexture(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha) {}
-
-Sphere::~Sphere() {}
-
-void Sphere::Render()
-{
-    ObjectWithTexture::Render();
-
-    m_sceneManager->m_sharedContext->graphics->m_shader->Use();
-    m_sceneManager->m_sharedContext->graphics->DrawSphere();
-}
-
-void Sphere::RenderPicking()
-{
-    ObjectWithTexture::RenderPicking();
-
-    m_sceneManager->m_sharedContext->graphics->m_pickingShader->Use();
-    m_sceneManager->m_sharedContext->graphics->DrawSphere();
-}
-
-void Sphere::Update()
-{
-    ObjectWithTexture::Update();
-}
-
-//* LightSource
-
-LightSource::LightSource(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                         sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular)
-    : Object{ l_ID, l_sceneManager, l_position, l_rotation, l_scale }, m_ambient{ l_ambient }, m_diffusive{ l_diffusive }, m_specular{ l_specular } {}
-
-void LightSource::Update()
-{
-    MatrixFloat m_translateMatrix;
-    MatrixFloat m_rotateMatrix;
-    MatrixFloat m_scaleMatrix;
-    m_translateMatrix.Move(m_position.x, m_position.y, m_position.z);
-    m_rotateMatrix.Rotate(m_rotation.x, m_rotation.y, m_rotation.z);
-    m_scaleMatrix.ScaleXYZ(m_scale.x, m_scale.y, m_scale.z);
-    m_modelMatrix     = m_translateMatrix * m_rotateMatrix * m_scaleMatrix;
-    m_transformMatrix = m_sceneManager->m_projectionMatrix * m_sceneManager->m_viewMatrix * m_modelMatrix;
-}
-
-void LightSource::Render() {}
-
-void LightSource::RenderPicking()
-{
-    // TODO make smol cube rendering
-    m_sceneManager->m_sharedContext->graphics->m_pickingShader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
-    m_sceneManager->m_sharedContext->graphics->m_pickingShader->SetUInt("objectID", m_ID);
-}
-
-//* PointLight
-
-PointLight::PointLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                       sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                       GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
-    : LightSource{ l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular },
-      m_constant{ l_constant }, m_linear{ l_linear }, m_quadratic{ l_quadratic } {}
-
-PointLight::~PointLight() {}
-
-void PointLight::Update()
-{
-    LightSource::Update();
-
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("pointLights[" + std::to_string(m_sceneManager->m_pointLightCount) + "].position", m_position.x, m_position.y, m_position.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("pointLights[" + std::to_string(m_sceneManager->m_pointLightCount) + "].constant", m_constant);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("pointLights[" + std::to_string(m_sceneManager->m_pointLightCount) + "].linear", m_linear);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("pointLights[" + std::to_string(m_sceneManager->m_pointLightCount) + "].quadratic", m_quadratic);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("pointLights[" + std::to_string(m_sceneManager->m_pointLightCount) + "].ambient", m_ambient.x, m_ambient.y, m_ambient.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("pointLights[" + std::to_string(m_sceneManager->m_pointLightCount) + "].diffuse", m_diffusive.x, m_diffusive.y, m_diffusive.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("pointLights[" + std::to_string(m_sceneManager->m_pointLightCount) + "].specular", m_specular.x, m_specular.y, m_specular.z);
-
-    m_sceneManager->m_pointLightCount++;
-}
-
-//* DirectionalLight
-
-DirectionalLight::DirectionalLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                   sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular)
-    : LightSource{ l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular } {}
-
-DirectionalLight::~DirectionalLight() {}
-
-void DirectionalLight::Update()
-{
-    LightSource::Update();
-
-    sf::Vector3f direction;
-    direction.x = std::cos(m_rotation.y) * std::cos(m_rotation.x);
-    direction.y = std::sin(m_rotation.x);
-    direction.z = std::sin(m_rotation.y) * std::cos(m_rotation.x);
-
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("dirLight.direction", direction.x, direction.y, direction.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("dirLight.ambient", m_ambient.x, m_ambient.y, m_ambient.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("dirLight.diffuse", m_diffusive.x, m_diffusive.y, m_diffusive.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("dirLight.specular", m_specular.x, m_specular.y, m_specular.z);
-}
-
-//* SpotLight
-
-SpotLight::SpotLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                     sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                     GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
-    : LightSource{ l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular },
-      m_cutOff{ l_cutOff }, m_outerCutOff{ l_outerCutOff }, m_constant{ l_constant }, m_linear{ l_linear }, m_quadratic{ l_quadratic } {}
-
-SpotLight::~SpotLight() {}
-
-void SpotLight::Update()
-{
-    LightSource::Update();
-
-    sf::Vector3f direction;
-    direction.x = std::cos(m_rotation.y) * std::cos(m_rotation.x);
-    direction.y = std::sin(m_rotation.x);
-    direction.z = std::sin(m_rotation.y) * std::cos(m_rotation.x);
-
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].position", m_position.x, m_position.y, m_position.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].direction", direction.x, direction.y, direction.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].cutOff", m_cutOff);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].outerCutOff", m_outerCutOff);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].constant", m_constant);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].linear", m_linear);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloat("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].quadratic", m_quadratic);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].ambient", m_ambient.x, m_ambient.y, m_ambient.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].diffuse", m_diffusive.x, m_diffusive.y, m_diffusive.z);
-    m_sceneManager->m_sharedContext->graphics->m_shader->SetFloatVec3("spotLight[" + std::to_string(m_sceneManager->m_spotLightCount) + "].specular", m_specular.x, m_specular.y, m_specular.z);
-
-    m_sceneManager->m_spotLightCount++;
-}
-
-//* LightCube
-
-LightCube::LightCube(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation,
-                     sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                     GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
-    : PointLight(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic) {}
-
-LightCube::~LightCube() {}
-
-void LightCube::Render()
-{
-    m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
-    m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->SetFloatVec3("lightColor", m_specular.x, m_specular.y, m_specular.z);
-
-    m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->Use();
-    m_sceneManager->m_sharedContext->graphics->DrawLightSourceCube();
-}
-
-void LightCube::RenderPicking()
-{
-    LightSource::RenderPicking();
-
-    m_sceneManager->m_sharedContext->graphics->m_pickingShader->Use();
-    m_sceneManager->m_sharedContext->graphics->DrawCube();
-}
-
-void LightCube::Update()
-{
-    PointLight::Update();
-}
-
-//* LightSphere
-
-LightSphere::LightSphere(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation,
-                         sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                         GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
-    : PointLight(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic) {}
-
-LightSphere::~LightSphere() {}
-
-void LightSphere::Render()
-{
-    m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->SetFloatMatrix("transformMatrix", m_transformMatrix.GetArray());
-    m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->SetFloatVec3("lightColor", m_specular.x, m_specular.y, m_specular.z);
-
-    m_sceneManager->m_sharedContext->graphics->m_lightSourceShader->Use();
-    m_sceneManager->m_sharedContext->graphics->DrawLightSourceSphere();
-}
-
-void LightSphere::RenderPicking()
-{
-    LightSource::RenderPicking();
-
-    m_sceneManager->m_sharedContext->graphics->m_pickingShader->Use();
-    m_sceneManager->m_sharedContext->graphics->DrawLightSourceSphere();
-}
-
-void LightSphere::Update()
-{
-    PointLight::Update();
-}
-
-//* ObjectWithLight
-
-ObjectWithLight::ObjectWithLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                 Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights)
-    : ObjectWithTexture(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha), m_lights{ l_lights } {}
-
-ObjectWithLight::~ObjectWithLight()
-{
-    for (auto lightSource : m_lights)
-    {
-        delete lightSource;
-    }
-}
-
-void ObjectWithLight::Render()
-{
-}
-
-void ObjectWithLight::RenderPicking()
-{
-}
-
-void ObjectWithLight::Update()
-{
-}
-
-//* Lamp
-
-Lamp::Lamp(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-           Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights)
-    : ObjectWithLight(l_ID, l_sceneManager, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha, l_lights) {}
-
-Lamp::~Lamp()
-{
-}
-
-void Lamp::Render()
-{
-}
-
-void Lamp::RenderPicking()
-{
-}
-
-void Lamp::Update()
-{
-}
-
-//* SceneManager
-
-SceneManager::SceneManager(SharedContext* l_sharedContext) : m_sharedContext{ l_sharedContext } {}
 
 SceneManager::~SceneManager()
 {
-    for (const auto elem : m_objects)
-    {
-        delete elem;
-    }
-    for (const auto elem : m_lightSources)
-    {
-        delete elem;
-    }
 }
 
-Cube* SceneManager::MakeCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                             Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
+Object* SceneManager::MakeCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                               Material l_material)
 {
-    Cube* cube = new Cube(++m_objectCount, this, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha);
-    m_objects.push_back(cube);
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    Object* cube = m_objects.back().get();
+    cube->SetMaterial(l_material);
+    cube->SetMesh({ 0, true });
     return cube;
 }
 
-Sphere* SceneManager::MakeSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, Texture l_texture, GLuint l_shininess, GLfloat l_alpha)
+Object* SceneManager::MakeSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, Material l_material)
 {
-    Sphere* sphere = new Sphere(++m_objectCount, this, l_position, l_rotation, l_scale, l_texture, l_shininess, l_alpha);
-    m_objects.push_back(sphere);
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    Object* sphere = m_objects.back().get();
+    sphere->SetMaterial(l_material);
+    sphere->SetMesh({ 1, true });
     return sphere;
 }
 
-PointLight* SceneManager::MakePointLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
+Object* SceneManager::MakePointLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
 {
-    PointLight* pointLight = new PointLight(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
-    m_lightSources.push_back(pointLight);
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    Object* pointLight = m_objects.back().get();
+    pointLight->SetLight(l_light);
     return pointLight;
 }
 
-LightCube* SceneManager::MakeLightCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                       sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                                       GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
+Object* SceneManager::MakeLightCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
 {
-    LightCube* lightCube = new LightCube(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
-    m_lightSources.push_back(lightCube);
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    Object* lightCube = m_objects.back().get();
+    lightCube->SetLight(l_light);
+    lightCube->SetMesh({ 0, true });
     return lightCube;
 }
 
-LightSphere* SceneManager::MakeLightSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                           sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                                           GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
+Object* SceneManager::MakeLightSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
 {
-    LightSphere* lightSphere = new LightSphere(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_constant, l_linear, l_quadratic);
-    m_lightSources.push_back(lightSphere);
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    Object* lightSphere = m_objects.back().get();
+    lightSphere->SetLight(l_light);
+    lightSphere->SetMesh({ 1, true });
     return lightSphere;
 }
 
-DirectionalLight* SceneManager::MakeDirectionalLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular)
+Object* SceneManager::MakeDirectionalLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
 {
-    DirectionalLight* dirLight = new DirectionalLight(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular);
-    m_lightSources.push_back(dirLight);
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    Object* dirLight = m_objects.back().get();
+    dirLight->SetLight(l_light);
     return dirLight;
 }
 
-SpotLight* SceneManager::MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular, GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic)
+Object* SceneManager::MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
 {
-    SpotLight* spotLight = new SpotLight(++m_objectCount, this, l_position, l_rotation, l_scale, l_ambient, l_diffusive, l_specular, l_cutOff, l_outerCutOff, l_constant, l_linear, l_quadratic);
-    m_lightSources.push_back(spotLight);
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    Object* spotLight = m_objects.back().get();
+    spotLight->SetLight(l_light);
     return spotLight;
+}
+
+Object* SceneManager::MakeObject(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, Material l_material, MeshInfo l_mesh, LightComponent l_light)
+{
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    Object* object = m_objects.back().get();
+    object->SetMaterial(l_material);
+    object->SetMesh(l_mesh);
+    object->SetLight(l_light);
+    return object;
 }
 
 void SceneManager::HandleInput()
@@ -399,62 +89,30 @@ void SceneManager::HandleInput()
     {
         sf::Vector2i mousePos = sf::Mouse::getPosition(*m_sharedContext->window->GetWindow());
 
-        unsigned int windowWidth  = m_sharedContext->window->GetWindowSize().x;
-        unsigned int windowHeight = m_sharedContext->window->GetWindowSize().y;
+        GLuint windowWidth  = m_sharedContext->window->GetWindowSize().x;
+        GLuint windowHeight = m_sharedContext->window->GetWindowSize().y;
 
         GLuint pixelX = (GLuint)(((float)mousePos.x / windowWidth) * m_sharedContext->graphics->m_pickingWidth);
         GLuint pixelY = (GLuint)(((float)(windowHeight - 1 - mousePos.y) / windowHeight) * m_sharedContext->graphics->m_pickingHeight);
 
-        sf::Vector2f NDC_for_GUI_check = m_sharedContext->GUI->ConvertScreenCoordinates(sf::Mouse::getPosition(*m_sharedContext->window->GetWindow())); // Используем SFML координаты здесь, если GUI ожидает их
-        if (NDC_for_GUI_check.x < m_sharedContext->GUI->m_leftBorder ||
-            NDC_for_GUI_check.x > m_sharedContext->GUI->m_rightBorder ||
-            NDC_for_GUI_check.y < m_sharedContext->GUI->m_elements.back()->m_topBorder - m_sharedContext->GUI->m_elementHeight ||
+        sf::Vector2f NDC_for_GUI_check = m_sharedContext->GUI->ConvertScreenCoordinates(sf::Mouse::getPosition(*m_sharedContext->window->GetWindow()));
+        if (NDC_for_GUI_check.x < m_sharedContext->GUI->m_leftBorder or
+            NDC_for_GUI_check.x > m_sharedContext->GUI->m_rightBorder or
+            NDC_for_GUI_check.y < m_sharedContext->GUI->m_elements.back()->m_topBorder - m_sharedContext->GUI->m_elementHeight or
             NDC_for_GUI_check.y > m_sharedContext->GUI->m_elements.front()->m_topBorder)
         {
             m_pickingCords.x  = pixelX;
             m_pickingCords.y  = pixelY;
             m_flagPicked      = true;
-            m_pickingCooldown = 200;
-            // std::cout << pixelX << " " << pixelY << '\n';
+            m_pickingCooldown = m_sharedContext->m_cooldownResetValue;
         }
     }
+
+    m_camera.HandleInput();
 }
 
 void SceneManager::Update(GLint l_elapsed)
 {
-    m_cameraPosition = m_sharedContext->camera->getPosition();
-
-    m_viewMatrix = m_sharedContext->camera->getViewMatrix();
-
-    if (m_flagProjection)
-    {
-        m_projectionMatrix.OrthographicProjection((float)m_sharedContext->window->GetWindowSize().x /
-                                                      (float)m_sharedContext->window->GetWindowSize().y,
-                                                  1.0f, -1.0f, 1.0f, -1.0f, m_nearDistance, 100.0f);
-    }
-    else
-    {
-        m_projectionMatrix.PerspectiveProjection(m_sharedContext->camera->getFOV(),
-                                                 (float)m_sharedContext->window->GetWindowSize().x /
-                                                     (float)m_sharedContext->window->GetWindowSize().y,
-                                                 m_nearDistance, 100.0f);
-    }
-
-    for (const auto elem : m_objects)
-    {
-        elem->Update();
-    }
-
-    m_spotLightCount  = 0;
-    m_pointLightCount = 0;
-    for (const auto elem : m_lightSources)
-    {
-        elem->Update();
-    }
-
-    m_sharedContext->graphics->m_shader->SetInt("pointLightCount", m_pointLightCount);
-    m_sharedContext->graphics->m_shader->SetInt("spotLightCount", m_spotLightCount);
-
     if (m_pickingCooldown > 0)
     {
         if (m_pickingCooldown - l_elapsed < 0)
@@ -476,10 +134,59 @@ void SceneManager::Update(GLint l_elapsed)
         }
         m_flagPickedReady = false;
     }
+
+    m_camera.Update(l_elapsed);
 }
 
 void SceneManager::Render()
 {
+    sf::Vector3f m_cameraPosition = m_sharedContext->camera->GetPosition(); // TODO maybe i should do these computations in update...
+
+    m_viewMatrix = m_sharedContext->camera->GetViewMatrix();
+
+    if (m_flagProjection)
+    {
+        m_projectionMatrix.OrthographicProjection((float)m_sharedContext->window->GetWindowSize().x /
+                                                      (float)m_sharedContext->window->GetWindowSize().y,
+                                                  1.0f, -1.0f, 1.0f, -1.0f, m_nearDistance, m_rearDistance);
+    }
+    else
+    {
+        m_projectionMatrix.PerspectiveProjection(m_sharedContext->camera->GetFOV(),
+                                                 (float)m_sharedContext->window->GetWindowSize().x /
+                                                     (float)m_sharedContext->window->GetWindowSize().y,
+                                                 m_nearDistance, m_rearDistance);
+    }
+    m_spotLightCount  = 0;
+    m_pointLightCount = 0;
+
+    MatrixFloat projectionViewMatrix = m_projectionMatrix * m_viewMatrix;
+
+    m_sharedContext->shader->Use();
+
+    for (auto& elem : m_objects)
+    {
+        elem->UpdateTransformMatrix(projectionViewMatrix);
+
+        LightType elemType = elem->GetLight().type;
+
+        if (elemType != LightType::None and elem->GetLight().hasChanges)
+        {
+            UpdateLightData(elem, m_sharedContext->shader, m_pointLightCount, m_spotLightCount);
+        }
+        if (elemType == LightType::Point)
+        {
+            m_pointLightCount++;
+        }
+        else if (elemType == LightType::Spot)
+        {
+            m_spotLightCount++;
+        }
+    }
+
+    m_sharedContext->shader->SetInt("pointLightCount", m_pointLightCount);
+    m_sharedContext->shader->SetInt("spotLightCount", m_spotLightCount); // TODO maybe i should do these computations in update...
+
     if (m_flagPicked == true)
     {
         RenderPicking();
@@ -490,14 +197,49 @@ void SceneManager::Render()
         m_flagPickedReady = true;
     }
 
-    for (const auto elem : m_lightSources)
-    {
-        elem->Render();
-    }
+    auto shader = m_sharedContext->shader;
 
-    for (const auto elem : m_objects)
+    shader->Use();
+    shader->SetFloatVec3("viewPosition", m_cameraPosition.x, m_cameraPosition.y, m_cameraPosition.z);
+
+    for (const auto& elem : m_objects)
     {
-        elem->Render();
+        if (elem->GetMesh().isActive == false)
+        {
+            continue;
+        }
+
+        Material material = elem->GetMaterial();
+
+        shader->SetFloatMatrix("modelMatrix", elem->GetModelMatrix().GetArray());
+        shader->SetFloatMatrix("transformMatrix", elem->GetTransformMatrix().GetArray());
+
+        shader->SetFloatVec3("material.colour", material.colour.x, material.colour.y, material.colour.z);
+        shader->SetFloat("material.shininess", material.shininess);
+        shader->SetFloat("material.alpha", material.alpha);
+
+        if (material.hasDiffuseTexture)
+        {
+            shader->SetDiffTexture(material.diffuseTexture);
+        }
+        if (material.hasSpecularTexture)
+        {
+            shader->SetSpecTexture(material.specularTexture);
+        }
+        shader->SetBool("material.hasDiffuseTexture", material.hasDiffuseTexture);
+        shader->SetBool("material.hasSpecularTexture", material.hasSpecularTexture);
+
+        if (elem->GetLight().type != LightType::None)
+        {
+            shader->SetFloatVec3("material.colour", elem->GetLight().specular.x, elem->GetLight().specular.y, elem->GetLight().specular.z);
+            shader->SetBool("material.isLightSource", true);
+        }
+        else
+        {
+            shader->SetBool("material.isLightSource", false);
+        }
+
+        m_sharedContext->graphics->DrawMesh(elem->GetMesh().ID);
     }
 }
 
@@ -505,15 +247,62 @@ void SceneManager::RenderPicking()
 {
     m_sharedContext->graphics->BeginPickingDraw();
 
-    for (const auto elem : m_lightSources)
-    {
-        elem->RenderPicking();
-    }
+    m_sharedContext->pickingShader->Use();
 
-    for (const auto elem : m_objects)
+    for (const auto& elem : m_objects)
     {
-        elem->RenderPicking();
+        if (elem->GetMesh().isActive) // TODO make picking meshless objects possible
+        {
+            m_sharedContext->pickingShader->SetFloatMatrix("transformMatrix", elem->GetTransformMatrix().GetArray());
+            m_sharedContext->pickingShader->SetUInt("objectID", elem->GetID());
+
+            m_sharedContext->graphics->DrawMesh(elem->GetMesh().ID);
+        }
     }
 
     m_sharedContext->graphics->EndPickingDraw(m_sharedContext->window->GetWindowSize().x, m_sharedContext->window->GetWindowSize().y);
+}
+
+void SceneManager::UpdateLightData(std::unique_ptr<Object>& l_object, Shader* shader, int pointLightCount, int spotLightCount)
+{
+    LightComponent m_light  = l_object->GetLight();
+    sf::Vector3f m_position = l_object->GetPosition();
+    if (m_light.type == LightType::None)
+    {
+        return;
+    }
+
+    if (m_light.type == LightType::Directional)
+    {
+        shader->SetFloatVec3("dirLight.direction", m_light.direction.x, m_light.direction.y, m_light.direction.z);
+        shader->SetFloatVec3("dirLight.ambient", m_light.ambient.x, m_light.ambient.y, m_light.ambient.z);
+        shader->SetFloatVec3("dirLight.diffuse", m_light.diffusive.x, m_light.diffusive.y, m_light.diffusive.z);
+        shader->SetFloatVec3("dirLight.specular", m_light.specular.x, m_light.specular.y, m_light.specular.z);
+    }
+    else if (m_light.type == LightType::Point)
+    {
+        std::string prefix = "pointLights[" + std::to_string(pointLightCount) + "].";
+        shader->SetFloatVec3(prefix + "position", m_position.x, m_position.y, m_position.z);
+        shader->SetFloat(prefix + "constant", m_light.constant);
+        shader->SetFloat(prefix + "linear", m_light.linear);
+        shader->SetFloat(prefix + "quadratic", m_light.quadratic);
+        shader->SetFloatVec3(prefix + "ambient", m_light.ambient.x, m_light.ambient.y, m_light.ambient.z);
+        shader->SetFloatVec3(prefix + "diffuse", m_light.diffusive.x, m_light.diffusive.y, m_light.diffusive.z);
+        shader->SetFloatVec3(prefix + "specular", m_light.specular.x, m_light.specular.y, m_light.specular.z);
+    }
+    else if (m_light.type == LightType::Spot)
+    {
+        std::string prefix = "spotLight[" + std::to_string(spotLightCount) + "].";
+        shader->SetFloatVec3(prefix + "position", m_position.x, m_position.y, m_position.z);
+        shader->SetFloatVec3(prefix + "direction", m_light.direction.x, m_light.direction.y, m_light.direction.z);
+        shader->SetFloat(prefix + "cutOff", m_light.cutOff);
+        shader->SetFloat(prefix + "outerCutOff", m_light.outerCutOff);
+        shader->SetFloat(prefix + "constant", m_light.constant);
+        shader->SetFloat(prefix + "linear", m_light.linear);
+        shader->SetFloat(prefix + "quadratic", m_light.quadratic);
+        shader->SetFloatVec3(prefix + "ambient", m_light.ambient.x, m_light.ambient.y, m_light.ambient.z);
+        shader->SetFloatVec3(prefix + "diffuse", m_light.diffusive.x, m_light.diffusive.y, m_light.diffusive.z);
+        shader->SetFloatVec3(prefix + "specular", m_light.specular.x, m_light.specular.y, m_light.specular.z);
+    }
+    l_object->SetHasChangesFlag(false);
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <MathConstats.h>
 #include <cmath>
 #include <glad/glad.h>
 #include <iostream>
@@ -49,6 +50,10 @@ public:
 
     void Rotate(GLfloat yaw, GLfloat pitch, GLfloat roll)
     {
+        yaw   *= DEG2RAD;
+        pitch *= DEG2RAD;
+        roll  *= DEG2RAD;
+
         GLfloat yawSin   = std::sin(yaw);
         GLfloat yawCos   = std::cos(yaw);
         GLfloat pitchSin = std::sin(pitch);
@@ -76,8 +81,6 @@ public:
 
     void PerspectiveProjection(GLfloat fovX, GLfloat aspectRatio, GLfloat front, GLfloat back)
     {
-        const GLfloat DEG2RAD = std::acos(-1.0f) / 180.0f;
-
         GLfloat tangent = tan(fovX / 2.0f * DEG2RAD); // tangent of half fovX
 
         m_elements[0]  = 1.0f / tangent;

@@ -15,6 +15,7 @@ Graphics::~Graphics()
 {
     FreeObjects();
 }
+
 void APIENTRY
 glDebugOutput(GLenum source,
               GLenum type,
@@ -207,30 +208,25 @@ void Graphics::ConfigureFreeType()
 
 void Graphics::MakeShaders()
 {
-    MakeShader("shaders/Main.vert", "shaders/Main.frag", m_shader);
-    m_shader->SetInt("material.diffuse", 1);
-    m_shader->SetInt("material.specular", 2);
-    MakeShader("shaders/Text.vert", "shaders/Text.frag", m_textShader);
-    MakeShader("shaders/LightSource.vert", "shaders/LightSource.frag", m_lightSourceShader);
-    MakeShader("shaders/GUI.vert", "shaders/GUI.frag", m_GUIShader);
-    MakeShader("shaders/Picking.vert", "shaders/Picking.frag", m_pickingShader);
+    m_shader = { "shaders/Main.vert", "shaders/Main.frag" };
+    m_shader.SetInt("material.diffuse", 1);
+    m_shader.SetInt("material.specular", 2);
+    m_textShader    = { "shaders/Text.vert", "shaders/Text.frag" };
+    m_GUIShader     = { "shaders/GUI.vert", "shaders/GUI.frag" };
+    m_pickingShader = { "shaders/Picking.vert", "shaders/Picking.frag" };
 }
 
 void Graphics::MakeVAOs()
 {
-    MakeTriangleVAO();
-    MakeCubeVAO();
-    MakeLightSourceCubeVAO();
-    MakeRectangleVAO();
-    MakeSphereVAO();
-    MakeLightSourceSphereVAO();
-    MakeFullScreenRectangleVAO();
+    m_meshes.push_back(MakeCubeVAO());
+    m_meshes.push_back(MakeSphereVAO());
+    m_meshes.push_back(MakeRectangleVAO());
 }
 
 void Graphics::MakeTextures()
 {
-    m_textures.push_back(std::make_pair(MakeTexture("resources/textures/diamond_ore.png"),
-                                        MakeTexture("resources/textures/diamond_ore_spec.png")));
+    m_textures.push_back({ MakeTexture("resources/textures/diamond_ore.png"),
+                           MakeTexture("resources/textures/diamond_ore_spec.png"), "Diamond" });
 }
 
 void Graphics::MakePBOs()
@@ -241,11 +237,6 @@ void Graphics::MakePBOs()
 void Graphics::MakeFBOs()
 {
     MakePickingFBO(m_pickingWidth, m_pickingHeight);
-}
-
-void Graphics::MakeShader(const GLchar* vertexPath, const GLchar* fragmentPath, Shader*& l_shader)
-{
-    l_shader = new Shader(vertexPath, fragmentPath);
 }
 
 GLuint Graphics::MakeTexture(char const* path)
@@ -297,50 +288,9 @@ GLuint Graphics::MakeTexture(char const* path)
 
 void Graphics::FreeObjects()
 {
-    delete m_shader;
-    delete m_textShader;
-    delete m_GUIShader;
-    delete m_lightSourceShader;
 }
 
-void Graphics::MakeTriangleVAO()
-{
-    GLfloat points[3][3] = {
-        {  0.0f,  0.5f, 0.0f },
-        { -0.5f, -0.5f, 0.0f },
-        {  0.5f, -0.5f, 0.0f }
-    };
-
-    GLfloat colours[3][3] = {
-        { 1.0f, 0.0f, 0.0f },
-        { 0.0f, 1.0f, 0.0f },
-        { 0.0f, 0.0f, 1.0f }
-    };
-
-    GLuint pointsVBO;
-    glCreateBuffers(1, &pointsVBO);
-    glNamedBufferData(pointsVBO, 9 * sizeof(GLfloat), points, GL_STATIC_DRAW);
-
-    GLuint coloursVBO;
-    glCreateBuffers(1, &coloursVBO);
-    glNamedBufferData(coloursVBO, 9 * sizeof(GLfloat), colours, GL_STATIC_DRAW);
-
-    glCreateVertexArrays(1, &m_triangleVAO);
-
-    glVertexArrayVertexBuffer(m_triangleVAO, 0, pointsVBO, 0, 3 * sizeof(GL_FLOAT));
-    glVertexArrayVertexBuffer(m_triangleVAO, 1, coloursVBO, 0, 3 * sizeof(GL_FLOAT));
-
-    glVertexArrayAttribFormat(m_triangleVAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
-    glVertexArrayAttribFormat(m_triangleVAO, 1, 3, GL_FLOAT, GL_FALSE, 0);
-
-    glVertexArrayAttribBinding(m_triangleVAO, 0, 0);
-    glVertexArrayAttribBinding(m_triangleVAO, 1, 1);
-
-    glEnableVertexArrayAttrib(m_triangleVAO, 0);
-    glEnableVertexArrayAttrib(m_triangleVAO, 1);
-}
-
-void Graphics::MakeCubeVAO()
+Mesh Graphics::MakeCubeVAO()
 {
     GLfloat vertices[24][8] = {
         //*Coordinates        |Normals             |Texture coordinates
@@ -397,6 +347,7 @@ void Graphics::MakeCubeVAO()
         { 22, 21, 20 }
     };
 
+    GLuint m_cubeVBO, m_cubeVAO, m_cubeIBO;
     glCreateBuffers(1, &m_cubeVBO);
     glNamedBufferData(m_cubeVBO, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
@@ -419,44 +370,11 @@ void Graphics::MakeCubeVAO()
     glEnableVertexArrayAttrib(m_cubeVAO, 0);
     glEnableVertexArrayAttrib(m_cubeVAO, 1);
     glEnableVertexArrayAttrib(m_cubeVAO, 2);
+
+    return { m_cubeVAO, 36, "Cube" };
 }
 
-void Graphics::MakeLightSourceCubeVAO()
-{
-    glCreateVertexArrays(1, &m_lightSourceCubeVAO);
-
-    glVertexArrayVertexBuffer(m_lightSourceCubeVAO, 0, m_cubeVBO, 0, 8 * sizeof(GL_FLOAT));
-    glVertexArrayElementBuffer(m_lightSourceCubeVAO, m_cubeIBO);
-
-    glVertexArrayAttribFormat(m_lightSourceCubeVAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
-
-    glVertexArrayAttribBinding(m_lightSourceCubeVAO, 0, 0);
-
-    glEnableVertexArrayAttrib(m_lightSourceCubeVAO, 0);
-}
-
-void Graphics::MakeFullScreenRectangleVAO()
-{
-    const GLfloat quadVertices[6][3] = {
-        //* Positions         TexCoords
-        { -1.0f,  1.0f, 0.0f },
-        { -1.0f, -1.0f, 0.0f },
-        {  1.0f, -1.0f, 0.0f },
-        { -1.0f,  1.0f, 0.0f },
-        {  1.0f, -1.0f, 0.0f },
-        {  1.0f,  1.0f, 0.0f }
-    };
-    GLuint VBO;
-    glGenVertexArrays(1, &m_fullScreenRectangleVAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(m_fullScreenRectangleVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-    glEnableVertexAttribArray(0);
-}
-
-void Graphics::MakeRectangleVAO()
+Mesh Graphics::MakeRectangleVAO()
 {
     GLfloat vertices[4][6] = {
         //*coordinates        colors
@@ -480,6 +398,7 @@ void Graphics::MakeRectangleVAO()
     glCreateBuffers(1, &pointsIBO);
     glNamedBufferData(pointsIBO, sizeof(indices), indices, GL_STATIC_DRAW);
 
+    GLuint m_rectangleVAO;
     glCreateVertexArrays(1, &m_rectangleVAO);
 
     glVertexArrayVertexBuffer(m_rectangleVAO, 0, pointsVBO, 0, 6 * sizeof(GL_FLOAT));
@@ -493,6 +412,8 @@ void Graphics::MakeRectangleVAO()
 
     glEnableVertexArrayAttrib(m_rectangleVAO, 0);
     glEnableVertexArrayAttrib(m_rectangleVAO, 1);
+
+    return { m_rectangleVAO, 6, "Rectangle" };
 }
 
 void Graphics::MakePickingPBO()
@@ -531,13 +452,11 @@ void Graphics::MakePickingFBO(GLuint l_width, GLuint l_height)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Graphics::MakeSphereVAO()
+Mesh Graphics::MakeSphereVAO()
 {
     std::vector<GLfloat> vertices;
     std::vector<GLfloat> normals;
     std::vector<GLuint> indices;
-
-    const GLfloat PI = acos(-1.0f);
 
     GLfloat radius    = 1.0f;
     GLint sectorCount = 36;
@@ -627,6 +546,7 @@ void Graphics::MakeSphereVAO()
         interleavedVertices.push_back(normals[i + 2]);
     }
     // Generate and bind the Vertex Array Object
+    GLuint m_sphereVAO, m_sphereVBO, m_sphereIBO, m_sphereIndexCount;
     glCreateVertexArrays(1, &m_sphereVAO);
     glBindVertexArray(m_sphereVAO);
 
@@ -654,53 +574,14 @@ void Graphics::MakeSphereVAO()
     glVertexAttribPointer(normalAttribIndex, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
 
     m_sphereIndexCount = indices.size();
+
+    return { m_sphereVAO, m_sphereIndexCount, "Sphere" };
 }
 
-void Graphics::MakeLightSourceSphereVAO()
+void Graphics::DrawMesh(GLuint l_meshID)
 {
-    glCreateVertexArrays(1, &m_lightSourceSphereVAO);
-
-    glVertexArrayVertexBuffer(m_lightSourceSphereVAO, 0, m_sphereVBO, 0, 6 * sizeof(GL_FLOAT));
-    glVertexArrayElementBuffer(m_lightSourceSphereVAO, m_sphereIBO);
-
-    glVertexArrayAttribFormat(m_lightSourceSphereVAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
-    glVertexArrayAttribFormat(m_lightSourceSphereVAO, 1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GL_FLOAT));
-
-    glVertexArrayAttribBinding(m_lightSourceSphereVAO, 0, 0);
-    glVertexArrayAttribBinding(m_lightSourceSphereVAO, 1, 0);
-
-    glEnableVertexArrayAttrib(m_lightSourceSphereVAO, 0);
-    glEnableVertexArrayAttrib(m_lightSourceSphereVAO, 1);
-}
-
-void Graphics::DrawRectangle()
-{
-    glBindVertexArray(m_rectangleVAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-}
-
-void Graphics::DrawSphere()
-{
-    glBindVertexArray(m_sphereVAO);
-    glDrawElements(GL_TRIANGLES, m_sphereIndexCount, GL_UNSIGNED_INT, 0);
-}
-
-void Graphics::DrawLightSourceSphere()
-{
-    glBindVertexArray(m_lightSourceSphereVAO);
-    glDrawElements(GL_TRIANGLES, m_sphereIndexCount, GL_UNSIGNED_INT, 0);
-}
-
-void Graphics::DrawCube()
-{
-    glBindVertexArray(m_cubeVAO);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-}
-
-void Graphics::DrawLightSourceCube()
-{
-    glBindVertexArray(m_lightSourceCubeVAO);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(m_meshes[l_meshID].ID);
+    glDrawElements(GL_TRIANGLES, m_meshes[l_meshID].verticesCount, GL_UNSIGNED_INT, 0);
 }
 
 void Graphics::RenderText(const std::string& text, GLfloat x, GLfloat y,
@@ -708,8 +589,8 @@ void Graphics::RenderText(const std::string& text, GLfloat x, GLfloat y,
                           GLfloat colorR, GLfloat colorG, GLfloat colorB)
 {
     // activate corresponding render state
-    m_textShader->Use();
-    m_textShader->SetFloatVec3("textColor", colorR, colorG, colorB);
+    m_textShader.Use();
+    m_textShader.SetFloatVec3("textColor", colorR, colorG, colorB);
 
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(m_textVAO);
@@ -721,7 +602,7 @@ void Graphics::RenderText(const std::string& text, GLfloat x, GLfloat y,
         Character ch = Characters[*c];
 
         GLfloat xpos = x + ch.bearingLeft * scale * sx;
-        GLfloat ypos = y - (ch.sizeY - ch.bearingTop) * scale * sy;
+        GLfloat ypos = y - (static_cast<int>(ch.sizeY) - ch.bearingTop) * scale * sy;
 
         GLfloat w = ch.sizeX * scale * sx;
         GLfloat h = ch.sizeY * scale * sy;

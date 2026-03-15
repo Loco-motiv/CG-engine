@@ -7,6 +7,9 @@
 
 class Camera;
 class GUI;
+class Window;
+class Shader;
+class Graphics;
 
 struct SharedContext
 {
@@ -18,4 +21,8 @@ struct SharedContext
     Shader* shader;
     Shader* textShader;
     Shader* GUIShader;
+    Shader* pickingShader;
+
+    GLint m_cooldownDeadZone   = 11;
+    GLint m_cooldownResetValue = 270;
 };

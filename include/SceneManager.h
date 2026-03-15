@@ -1,192 +1,14 @@
 #pragma once
 
+#include "Object.h"
 #include "SharedContext.h"
 
+#include <SFML/Window.hpp>
+#include <SFML/Window/Keyboard.hpp>
+#include <memory>
 #include <vector>
 
-enum Texture
-{
-    Diamond = 0
-};
-
-class SceneManager;
-
-class Object
-{
-public:
-    Object(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale);
-    virtual ~Object() = default;
-
-    virtual void Render()        = 0;
-    virtual void RenderPicking() = 0;
-    virtual void Update()        = 0;
-
-    GLint m_ID;
-
-    SceneManager* m_sceneManager;
-
-    sf::Vector3f m_position;
-    sf::Vector3f m_rotation;
-    sf::Vector3f m_scale;
-
-    MatrixFloat m_modelMatrix;
-
-    MatrixFloat m_transformMatrix;
-};
-
-class ObjectWithTexture : public Object
-{
-public:
-    ObjectWithTexture(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                      Texture l_texture, GLuint l_shininess, GLfloat l_alpha);
-    virtual ~ObjectWithTexture() = default;
-
-    void Render() override;
-    void RenderPicking() override;
-    void Update() override;
-
-    GLuint m_diffusiveTexture;
-    GLuint m_specularTexture;
-
-    GLuint m_shininess;
-
-    GLfloat m_alpha;
-};
-
-class Cube : public ObjectWithTexture
-{
-public:
-    Cube(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-         Texture l_texture, GLuint l_shininess, GLfloat l_alpha);
-    ~Cube();
-
-    void Render() override;
-    void RenderPicking() override;
-    void Update() override;
-};
-
-class Sphere : public ObjectWithTexture
-{
-public:
-    Sphere(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-           Texture l_texture, GLuint l_shininess, GLfloat l_alpha);
-    ~Sphere();
-
-    void Render() override;
-    void RenderPicking() override;
-    void Update() override;
-};
-
-class LightSource : public Object
-{
-public:
-    LightSource(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular);
-    virtual ~LightSource() = default;
-
-    void Update() override;
-    void Render() override;
-    void RenderPicking() override;
-
-    sf::Vector3<GLdouble> m_ambient;
-    sf::Vector3<GLdouble> m_diffusive;
-    sf::Vector3<GLdouble> m_specular;
-};
-
-class PointLight : public LightSource
-{
-public:
-    PointLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-               sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-               GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
-    ~PointLight();
-
-    void Update() override;
-
-    GLfloat m_constant;
-    GLfloat m_linear;
-    GLfloat m_quadratic;
-};
-
-class DirectionalLight : public LightSource
-{
-public:
-    DirectionalLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                     sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular);
-    ~DirectionalLight();
-
-    void Update() override;
-};
-
-class SpotLight : public LightSource
-{
-public:
-    SpotLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-              sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-              GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
-    ~SpotLight();
-
-    void Update() override;
-
-    GLfloat m_cutOff;
-    GLfloat m_outerCutOff;
-
-    GLfloat m_constant;
-    GLfloat m_linear;
-    GLfloat m_quadratic;
-};
-
-class LightCube : public PointLight
-{
-public:
-    LightCube(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-              sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-              GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
-    ~LightCube();
-
-    void Render() override;
-    void RenderPicking() override;
-    void Update() override;
-};
-
-class LightSphere : public PointLight
-{
-public:
-    LightSphere(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
-    ~LightSphere();
-
-    void Render() override;
-    void RenderPicking() override;
-    void Update() override;
-};
-
-class ObjectWithLight : public ObjectWithTexture
-{
-public:
-    ObjectWithLight(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                    Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights);
-    ~ObjectWithLight();
-
-    void Render() override;
-    void RenderPicking() override;
-    void Update() override;
-
-    std::vector<LightSource*> m_lights;
-};
-
-class Lamp : public ObjectWithLight
-{
-public:
-    Lamp(GLint l_ID, SceneManager* l_sceneManager, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-         Texture l_texture, GLuint l_shininess, GLfloat l_alpha, std::vector<LightSource*> l_lights);
-    ~Lamp();
-
-    void Render() override;
-    void RenderPicking() override;
-    void Update() override;
-};
+struct ShaderContext;
 
 class SceneManager
 {
@@ -194,37 +16,56 @@ public:
     SceneManager(SharedContext* l_sharedContext);
     ~SceneManager();
 
-    Cube* MakeCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                   Texture l_texture, GLuint l_shininess, GLfloat l_alpha = 1.0f);
-    Sphere* MakeSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                       Texture l_texture, GLuint l_shininess, GLfloat l_alpha = 1.0f);
-    PointLight* MakePointLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                               sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                               GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
-    LightCube* MakeLightCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                             sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                             GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
-    LightSphere* MakeLightSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                 sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                                 GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
-    DirectionalLight* MakeDirectionalLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                           sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular);
-    SpotLight* MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                             sf::Vector3<GLdouble> l_ambient, sf::Vector3<GLdouble> l_diffusive, sf::Vector3<GLdouble> l_specular,
-                             GLfloat l_cutOff, GLfloat l_outerCutOff, GLfloat l_constant, GLfloat l_linear, GLfloat l_quadratic);
+    Object* MakeCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                     Material l_material);
+    Object* MakeSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                       Material l_material);
+    Object* MakePointLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                           LightComponent l_light);
+    Object* MakeLightCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                          LightComponent l_light);
+    Object* MakeLightSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                            LightComponent l_light);
+    Object* MakeDirectionalLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                                 LightComponent l_light);
+    Object* MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                          LightComponent l_light);
+    Object* MakeObject(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
+                       Material l_material, MeshInfo l_mesh, LightComponent l_light);
 
     void HandleInput();
     void Update(GLint l_elapsed);
     void Render();
 
+    void SetNearDistance(GLfloat l_dist) { m_nearDistance = l_dist; }
+    void SetRearDistance(GLfloat l_dist) { m_rearDistance = l_dist; }
+    void SetProjectionFlag(GLboolean l_flag) { m_flagProjection = l_flag; }
+    void SetPickedObject(GLint l_id) { m_pickedObject = l_id; }
+    void SetFlagPicked(GLboolean l_flag) { m_flagPicked = l_flag; }
+
+    GLfloat GetNearDistance() const { return m_nearDistance; }
+    GLfloat GetRearDistance() const { return m_rearDistance; }
+    GLboolean IsProjectionOrthographic() const { return m_flagProjection; }
+
+    sf::Vector2f GetPickingCords() const { return m_pickingCords; }
+    GLint GetPickedObjectId() const { return m_pickedObject; }
+    GLboolean IsObjectPicked() const { return m_flagPicked; }
+
+    size_t GetObjectCount() const { return m_objects.size(); }
+    const std::vector<std::unique_ptr<Object>>& GetObjects() const { return m_objects; }
+
+    MatrixFloat GetProjectionMatrix() const { return m_projectionMatrix; }
+    MatrixFloat GetViewMatrix() const { return m_viewMatrix; }
+
+private:
     SharedContext* m_sharedContext;
+    Camera m_camera;
 
     MatrixFloat m_projectionMatrix;
     MatrixFloat m_viewMatrix;
 
-    sf::Vector3f m_cameraPosition;
-
-    GLdouble m_nearDistance = 0.1f;
+    GLfloat m_nearDistance = 0.1f;
+    GLfloat m_rearDistance = 100.0f;
 
     GLboolean m_flagProjection = false;
 
@@ -239,9 +80,8 @@ public:
     GLboolean m_flagPickedReady = false;
     GLint m_pickingCooldown     = 0;
 
-    std::vector<ObjectWithTexture*> m_objects;
-    std::vector<LightSource*> m_lightSources;
+    std::vector<std::unique_ptr<Object>> m_objects;
 
-private:
     void RenderPicking();
+    void UpdateLightData(std::unique_ptr<Object>& l_object, Shader* shader, int pointLightCount, int spotLightCount);
 };

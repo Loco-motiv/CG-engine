@@ -11,6 +11,7 @@ class Shader
 public:
     GLuint ID;
 
+    Shader();
     Shader(const GLchar* vertexPath, const GLchar* fragmentPath);
 
     // TODO ~Shader glDeleteTextures(1, &texture);
@@ -28,6 +29,8 @@ public:
     void SetFloatVec3(const std::string& name, const GLfloat valueX, const GLfloat valueY, const GLfloat valueZ) const;
     void SetFloatMatrix(const std::string& name, const GLfloat* matrix) const;
 
+    void SetDiffTexture(const GLuint diffusive) const;
+    void SetSpecTexture(const GLuint specular) const;
     void SetDiffAndSpecTextures(const GLuint diffusive, const GLuint specular) const;
 
 private:

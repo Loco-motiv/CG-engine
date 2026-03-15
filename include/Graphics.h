@@ -11,6 +11,20 @@
 #include <SFML/Window.hpp>
 #include <map>
 
+struct Texture
+{
+    GLuint diffuse;
+    GLuint specular;
+    std::string name;
+};
+
+struct Mesh
+{
+    GLuint ID;
+    GLuint verticesCount;
+    std::string name;
+};
+
 struct Character
 {
     GLuint textureID; // ID handle of the glyph texture
@@ -27,19 +41,15 @@ public:
     Graphics();
     ~Graphics();
 
-    Shader* m_shader;
-    Shader* m_textShader;
-    Shader* m_lightSourceShader;
-    Shader* m_GUIShader;
-    Shader* m_pickingShader;
+    Shader m_shader;
+    Shader m_textShader;
+    Shader m_GUIShader;
+    Shader m_pickingShader;
 
-    std::vector<std::pair<GLuint, GLuint>> m_textures;
+    std::vector<Texture> m_textures;
+    std::vector<Mesh> m_meshes;
 
-    void DrawCube();
-    void DrawLightSourceCube();
-    void DrawRectangle();
-    void DrawSphere();
-    void DrawLightSourceSphere();
+    void DrawMesh(GLuint l_meshID);
     void RenderText(const std::string& text, GLfloat x, GLfloat y,
                     GLfloat sx, GLfloat sy, GLfloat scale,
                     GLfloat colorR, GLfloat colorG, GLfloat colorB);
@@ -51,8 +61,8 @@ public:
     void ReadPixel(GLuint x, GLuint y);
     GLuint GetPickingResult();
 
-    GLuint m_pickingWidth  = 800;
-    GLuint m_pickingHeight = 600;
+    GLuint m_pickingWidth  = 1920;
+    GLuint m_pickingHeight = 1080;
 
 private:
     void MakeShaders();
@@ -61,19 +71,13 @@ private:
     void MakePBOs();
     void MakeFBOs();
 
-    void MakeShader(const GLchar* vertexPath, const GLchar* fragmentPath, Shader*& l_shader);
     GLuint MakeTexture(char const* path);
 
-    void MakeTriangleVAO();
-    void MakeCubeVAO();
-    void MakeSphereVAO();
-    void MakeLightSourceCubeVAO();
-    void MakeLightSourceSphereVAO();
-    void MakeFullScreenRectangleVAO();
-    void MakeRectangleVAO();
+    Mesh MakeCubeVAO();
+    Mesh MakeSphereVAO();
+    Mesh MakeRectangleVAO();
 
     void MakePickingFBO(GLuint l_width, GLuint l_height);
-
     void MakePickingPBO();
 
     void FreeObjects();
@@ -81,26 +85,8 @@ private:
     void ConfigureOpenGL();
     void ConfigureFreeType();
 
-    GLuint m_triangleVAO;
-
-    GLuint m_cubeVAO;
-    GLuint m_lightSourceCubeVAO;
-    GLuint m_cubeVBO;
-    GLuint m_cubeIBO;
-
-    GLuint m_rectangleVAO;
-
-    GLuint m_sphereVAO;
-    GLuint m_lightSourceSphereVAO;
-    GLuint m_sphereVBO;
-    GLuint m_sphereIBO;
-
-    GLuint m_sphereIndexCount;
-
     GLuint m_textVAO;
     GLuint m_textVBO;
-
-    GLuint m_fullScreenRectangleVAO;
 
     GLuint m_pickingColorTexture;
     GLuint m_pickingDepthTexture;

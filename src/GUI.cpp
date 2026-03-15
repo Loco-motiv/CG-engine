@@ -2,7 +2,7 @@
 
 //* GUIElement
 
-GUIElement::GUIElement(std::string l_name, GLdouble l_topBorder, GUI* l_GUI)
+GUIElement::GUIElement(std::string l_name, GLfloat l_topBorder, GUI* l_GUI)
     : m_name{ l_name }, m_topBorder{ l_topBorder }, m_GUI{ l_GUI } {}
 
 GUIElement::~GUIElement() {}
@@ -10,21 +10,21 @@ GUIElement::~GUIElement() {}
 //* Button
 
 Button::Button(std::string l_name, std::function<void()> l_callback,
-               GLdouble l_topBorder, GUI* l_GUI)
+               GLfloat l_topBorder, GUI* l_GUI)
     : GUIElement{ l_name, l_topBorder, l_GUI }, m_callback{ l_callback } {}
 
 Button::~Button() {}
 
-void Button::HandleInput(GLdouble xCoordinate, GLdouble yCoordinate)
+void Button::HandleInput(GLfloat xCoordinate, GLfloat yCoordinate)
 {
-    if (m_cooldown < 11) //* dirty move to prevent button flickering
+    if (m_cooldown < m_GUI->m_sharedContext->m_cooldownDeadZone) //* dirty move to prevent button flickering
     {
         if (xCoordinate > m_GUI->m_leftBorder + m_GUI->m_elementGap / 2 and
             xCoordinate < m_GUI->m_rightBorder - m_GUI->m_elementGap / 2 and
             yCoordinate > m_topBorder - m_GUI->m_elementHeight + m_GUI->m_elementGap / 2 and
             yCoordinate < m_topBorder - m_GUI->m_elementGap / 2)
         {
-            m_cooldown = 270;
+            m_cooldown = m_GUI->m_sharedContext->m_cooldownResetValue;
             m_callback();
         }
     }
@@ -37,18 +37,18 @@ void Button::Render()
     transformMatrix.ScaleY(m_GUI->m_elementHeight - m_GUI->m_elementGap);
     transformMatrix.Move((m_GUI->m_rightBorder + m_GUI->m_leftBorder) / 2.0f,
                          (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f,
-                         0.0f); //! move to init
+                         0.0f); //! TODO move to init
 
     m_GUI->m_sharedContext->GUIShader->SetFloatMatrix("transformMatrix",
                                                       transformMatrix.GetArray());
     if (m_cooldown > 0)
     {
-        m_GUI->m_sharedContext->GUIShader->SetFloat("alpha", 0.5f);
+        m_GUI->m_sharedContext->GUIShader->SetFloat("alpha", 0.5f); // TODO Make button grey not opaque
         m_GUI->m_sharedContext->textShader->SetFloat("alpha", 0.5f);
     }
 
-    m_GUI->m_sharedContext->graphics->m_GUIShader->Use();
-    m_GUI->m_sharedContext->graphics->DrawRectangle();
+    m_GUI->m_sharedContext->GUIShader->Use();
+    m_GUI->m_sharedContext->graphics->DrawMesh(2); //* draw rectangle
 
     sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_name,
                                                                                 m_GUI->m_NDCTransformerX,
@@ -83,14 +83,14 @@ void Button::Update(GLint l_elapsed)
 
 //* Slider
 
-Slider::Slider(std::string l_name, GLdouble* l_currentValue, GLdouble l_minValue,
-               GLdouble l_maxValue, GLdouble l_topBorder, GUI* l_GUI)
+Slider::Slider(std::string l_name, GLfloat* l_currentValue, GLfloat l_minValue,
+               GLfloat l_maxValue, GLfloat l_topBorder, GUI* l_GUI)
     : GUIElement{ l_name, l_topBorder, l_GUI }, m_minValue{ l_minValue },
       m_maxValue{ l_maxValue }, m_currentValue{ l_currentValue } {}
 
 Slider::~Slider() {}
 
-void Slider::HandleInput(GLdouble xCoordinate, GLdouble yCoordinate)
+void Slider::HandleInput(GLfloat xCoordinate, GLfloat yCoordinate)
 {
     if (xCoordinate > m_GUI->m_leftBorder and
         xCoordinate < m_GUI->m_rightBorder and
@@ -113,19 +113,19 @@ void Slider::Render()
 
     m_GUI->m_sharedContext->GUIShader->SetFloatMatrix("transformMatrix",
                                                       transformMatrix.GetArray());
-    m_GUI->m_sharedContext->graphics->m_GUIShader->Use();
-    m_GUI->m_sharedContext->graphics->DrawRectangle();
+    m_GUI->m_sharedContext->GUIShader->Use();
+    m_GUI->m_sharedContext->graphics->DrawMesh(2); //* Draw rectangle
 
     MatrixFloat sliderTransformMatrix;
     sliderTransformMatrix.ScaleX(m_GUI->m_elementHeight / 8.0f);
     sliderTransformMatrix.ScaleY(m_GUI->m_elementHeight - m_GUI->m_elementGap * 1.8f);
 
-    GLdouble currentNDC = ConvertCurrent();
+    GLfloat currentNDC = ConvertCurrent();
 
     sliderTransformMatrix.Move(currentNDC, (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f, 0.0f);
     m_GUI->m_sharedContext->GUIShader->SetFloatMatrix("transformMatrix", sliderTransformMatrix.GetArray());
-    m_GUI->m_sharedContext->graphics->m_GUIShader->Use();
-    m_GUI->m_sharedContext->graphics->DrawRectangle();
+    m_GUI->m_sharedContext->GUIShader->Use();
+    m_GUI->m_sharedContext->graphics->DrawMesh(2); //* Draw rectangle
 
     sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_name + ": " + std::to_string(*m_currentValue),
                                                                                 m_GUI->m_NDCTransformerX,
@@ -138,14 +138,14 @@ void Slider::Render()
                                                  m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY), 0.1f, 0.1f, 0.9f);
 }
 
-GLdouble Slider::ConvertCurrent()
+GLfloat Slider::ConvertCurrent()
 {
     return ((*m_currentValue - m_maxValue) * (m_GUI->m_rightBorder - m_GUI->m_leftBorder - m_GUI->m_elementGap) /
             (m_maxValue - m_minValue)) +
            m_GUI->m_rightBorder - m_GUI->m_elementGap / 2.0f;
 }
 
-GLdouble Slider::ConvertNDC(GLdouble xCoordinate)
+GLfloat Slider::ConvertNDC(GLfloat xCoordinate)
 {
     if (xCoordinate < m_GUI->m_leftBorder + m_GUI->m_elementGap / 2.0f)
     {
@@ -164,18 +164,18 @@ void Slider::Update(GLint l_elapsed) {}
 
 //* HUD
 
-HUD::HUD(std::string l_name, GLdouble* l_currentValue, GLdouble l_topBorder, GUI* l_GUI)
+HUD::HUD(std::string l_name, GLfloat* l_currentValue, GLfloat l_topBorder, GUI* l_GUI)
     : GUIElement{ l_name, l_topBorder, l_GUI }, m_currentValue{ l_currentValue } {}
 
-HUD::HUD(std::string l_name, std::function<GLfloat()> l_getFunction, GLdouble l_topBorder, GUI* l_GUI)
+HUD::HUD(std::string l_name, std::function<GLfloat()> l_getFunction, GLfloat l_topBorder, GUI* l_GUI)
     : GUIElement{ l_name, l_topBorder, l_GUI }, m_getFunction{ l_getFunction } {}
 
-HUD::HUD(std::string l_name, std::function<std::string()> l_getStringFunction, GLdouble l_topBorder, GUI* l_GUI)
+HUD::HUD(std::string l_name, std::function<std::string()> l_getStringFunction, GLfloat l_topBorder, GUI* l_GUI)
     : GUIElement{ l_name, l_topBorder, l_GUI }, m_getStringFunction{ l_getStringFunction } {}
 
 HUD::~HUD() {}
 
-void HUD::HandleInput(GLdouble xCoordinate, GLdouble yCoordinate) {}
+void HUD::HandleInput(GLfloat xCoordinate, GLfloat yCoordinate) {}
 
 void HUD::Render()
 {
@@ -216,57 +216,43 @@ void HUD::Update(GLint l_elapsed) {}
 
 //* GUI
 
-GUI::GUI(SharedContext* l_sharedContext, GLdouble l_leftBorder, GLdouble l_rightBorder,
-         GLdouble l_elementHeight, GLdouble l_elementGap)
+GUI::GUI(SharedContext* l_sharedContext, GLfloat l_leftBorder, GLfloat l_rightBorder,
+         GLfloat l_elementHeight, GLfloat l_elementGap)
     : m_sharedContext{ l_sharedContext }, m_leftBorder{ l_leftBorder }, m_rightBorder{ l_rightBorder },
       m_elementHeight{ l_elementHeight }, m_elementGap{ l_elementGap } {}
 
 GUI::~GUI()
 {
-    for (const auto elem : m_elements)
-    {
-        delete elem;
-    }
 }
 
 void GUI::MakeButton(std::string l_name, std::function<void()> l_callback)
 {
-    Button* newButton = new Button(l_name, l_callback, m_topBorder, this);
-
+    m_elements.push_back(std::make_unique<Button>(l_name, l_callback, m_topBorder, this));
     m_topBorder -= m_elementHeight;
-    m_elements.push_back(newButton);
 }
 
-void GUI::MakeSlider(std::string l_name, GLdouble* l_currentValue, GLdouble l_minValue, GLdouble l_maxValue)
+void GUI::MakeSlider(std::string l_name, GLfloat* l_currentValue, GLfloat l_minValue, GLfloat l_maxValue)
 {
-    Slider* newButton = new Slider(l_name, l_currentValue, l_minValue, l_maxValue, m_topBorder, this);
-
+    m_elements.push_back(std::make_unique<Slider>(l_name, l_currentValue, l_minValue, l_maxValue, m_topBorder, this));
     m_topBorder -= m_elementHeight;
-    m_elements.push_back(newButton);
 }
 
-void GUI::MakeHUDElement(std::string l_name, GLdouble* l_currentValue)
+void GUI::MakeHUDElement(std::string l_name, GLfloat* l_currentValue)
 {
-    HUD* newButton = new HUD(l_name, l_currentValue, m_topBorder, this);
-
+    m_elements.push_back(std::make_unique<HUD>(l_name, l_currentValue, m_topBorder, this));
     m_topBorder -= m_elementHeight;
-    m_elements.push_back(newButton);
 }
 
 void GUI::MakeHUDElement(std::string l_name, std::function<GLfloat()> l_getFunction)
 {
-    HUD* newButton = new HUD(l_name, l_getFunction, m_topBorder, this);
-
+    m_elements.push_back(std::make_unique<HUD>(l_name, l_getFunction, m_topBorder, this));
     m_topBorder -= m_elementHeight;
-    m_elements.push_back(newButton);
 }
 
 void GUI::MakeHUDElement(std::string l_name, std::function<std::string()> l_getStringFunction)
 {
-    HUD* newButton = new HUD(l_name, l_getStringFunction, m_topBorder, this);
-
+    m_elements.push_back(std::make_unique<HUD>(l_name, l_getStringFunction, m_topBorder, this));
     m_topBorder -= m_elementHeight;
-    m_elements.push_back(newButton);
 }
 
 void GUI::HandleInput()
@@ -275,8 +261,8 @@ void GUI::HandleInput()
     {
         sf::Vector2f NDC = ConvertScreenCoordinates(sf::Mouse::getPosition(*m_sharedContext->window->GetWindow()));
 
-        GLdouble xCoordinate = NDC.x;
-        GLdouble yCoordinate = NDC.y;
+        GLfloat xCoordinate = NDC.x;
+        GLfloat yCoordinate = NDC.y;
 
         if (xCoordinate < m_leftBorder or
             xCoordinate > m_rightBorder or
@@ -285,7 +271,7 @@ void GUI::HandleInput()
         {
             return;
         }
-        for (const auto elem : m_elements)
+        for (const auto& elem : m_elements)
         {
             elem->HandleInput(xCoordinate, yCoordinate);
         }
@@ -294,7 +280,7 @@ void GUI::HandleInput()
 
 void GUI::Update(GLint l_elapsed)
 {
-    for (const auto elem : m_elements)
+    for (const auto& elem : m_elements)
     {
         elem->Update(l_elapsed);
     }
@@ -309,7 +295,7 @@ void GUI::Render()
     m_NDCTransformerX = 2.0f / m_sharedContext->window->GetWindowSize().x;
     m_NDCTransformerY = 2.0f / m_sharedContext->window->GetWindowSize().y;
 
-    for (const auto elem : m_elements)
+    for (const auto& elem : m_elements)
     {
         elem->Render();
     }

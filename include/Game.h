@@ -23,7 +23,7 @@ private:
     Window m_window;
     Graphics m_graphics;
     GUI m_GUI;
-    Camera m_camera;
+    Camera* m_camera;
     SceneManager m_sceneManager;
 
     sf::Clock m_clock;
@@ -33,15 +33,13 @@ private:
     GLboolean m_flagRotate = false;
     GLboolean m_flagFollow = true;
 
-    GLdouble m_turnSpeed        = 1.0f;
-    GLfloat m_rotateDirection   = 1.0f;
-    GLfloat m_rotateAccumulator = 0.0f;
-    GLdouble m_radius           = 1.0f;
+    GLfloat m_rotateAngle = 0.1f;
+    GLfloat m_radius      = 1.0f;
 
-    GLdouble m_cameraDistance = 10.f;
+    GLfloat m_cameraDistance = 10.f;
 
     sf::Vector3f m_targetPoint{ 0.0f, 0.0f, 0.0f };
 
-    Cube* m_cube;
-    LightCube* m_lightCube;
+    Object* m_cube;
+    Object* m_lightCube;
 };

@@ -1,5 +1,9 @@
 #include "Shader.h"
 
+Shader::Shader()
+{
+}
+
 Shader::Shader(const GLchar* vertexPath, const GLchar* fragmentPath)
 {
     std::string vertexCode;
@@ -101,6 +105,18 @@ void Shader::SetFloatMatrix(const std::string& name, const GLfloat* matrix) cons
 {
     Use();
     glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, matrix);
+}
+
+void Shader::SetDiffTexture(const GLuint diffusive) const
+{
+    Use();
+    glBindTextureUnit(1, diffusive);
+}
+
+void Shader::SetSpecTexture(const GLuint specular) const
+{
+    Use();
+    glBindTextureUnit(2, specular);
 }
 
 void Shader::SetDiffAndSpecTextures(const GLuint diffusive, const GLuint specular) const
