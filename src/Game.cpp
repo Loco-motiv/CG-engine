@@ -10,7 +10,7 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedCon
     m_sharedContext.textShader    = &m_graphics.m_textShader;
     m_sharedContext.GUIShader     = &m_graphics.m_GUIShader;
     m_sharedContext.pickingShader = &m_graphics.m_pickingShader;
-    m_camera                      = m_sharedContext.camera;
+    m_camera                      = m_sceneManager.GetCamera();
 
     Material diamond{
         m_graphics.m_textures[0].diffuse, m_graphics.m_textures[0].specular, 64, 1.0f, { 1.0f, 1.0f, 1.0f },
@@ -22,18 +22,16 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedCon
             false, false
     };
 
-    LightComponent pointLight{
-        LightType::Point, { 0.01f, 0.01f, 0.01f },
-         {  0.5f,  0.5f,  0.5f },
-         {  1.0f,  1.0f,  1.0f }
-    };
+    LightComponent pointLight = LightComponent::Point(
+        { 0.01f, 0.01f, 0.01f },
+        { 0.5f, 0.5f, 0.5f },
+        { 1.0f, 1.0f, 1.0f });
 
-    LightComponent dirLight{
-        LightType::Directional, { 0.2f, 0.2f, 0.2f },
-         {  0.8, 0.8f, 0.8f },
-         { 0.8f, 0.8f, 0.8f }
-    };
-    dirLight.direction = { 0.0f, -1.0f, 0.0f };
+    LightComponent dirLight = LightComponent::Directional(
+        { 0.2f, 0.2f, 0.2f },
+        { 0.8, 0.8f, 0.8f },
+        { 0.8f, 0.8f, 0.8f },
+        { 0.0f, -1.0f, 0.0f });
 
     m_cube = m_sceneManager.MakeCube({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.8f, 0.8f, 0.8f }, debugMat);
     m_sceneManager.MakeCube({ 2.0f, 2.0f, 2.0f }, { 0.0f, 0.0f, 0.0f }, { 1.8f, 0.8f, 0.8f }, diamond);
@@ -73,11 +71,10 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedCon
     m_GUI.MakeButton("Spawn lightCube", std::bind([this]()
                                                   { 
             m_targetPoint = m_camera->GetTargetPoint(m_cameraDistance);
-            LightComponent pointLight{
-                LightType::Point, { 0.2f, 0.2f, 0.2f },
+            LightComponent pointLight = LightComponent::Point(
+                { 0.2f, 0.2f, 0.2f },
                 { 0.8f, 0.8f, 0.8f },
-                { 1.0f, 1.0f, 1.0f }
-            };;
+                { 1.0f, 1.0f, 1.0f });
             m_sceneManager.MakeLightCube(m_targetPoint, { 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }, pointLight); }));
 
     m_GUI.MakeButton("Toggle YawGlobal", std::bind([this]()
@@ -105,8 +102,8 @@ void Game::Update()
             m_targetPoint = m_camera->GetTargetPoint(m_cameraDistance);
         }
         m_cube->SetPosition({ m_targetPoint.x,
-                              m_targetPoint.y + std::sin(m_cube->GetRotation().x * DEG2RAD) * (float)m_radius,
-                              m_targetPoint.z + std::cos(m_cube->GetRotation().x * DEG2RAD) * (float)m_radius });
+                              m_targetPoint.y + std::cos(m_cube->GetRotation().x * DEG2RAD) * (float)m_radius,
+                              m_targetPoint.z + std::sin(m_cube->GetRotation().x * DEG2RAD) * (float)m_radius });
     }
 
     m_sceneManager.Update(m_elapsed.asMilliseconds());

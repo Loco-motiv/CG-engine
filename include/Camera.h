@@ -15,7 +15,6 @@ class Camera : public Object
 {
 public:
     Camera(GLuint l_ID,
-           SharedContext* l_sharedContext,
            GLfloat l_FOV,
            GLfloat l_movementSpeed,
            GLfloat l_turnSpeed,
@@ -27,27 +26,32 @@ public:
     MatrixFloat GetViewMatrix();
     sf::Vector3f GetTargetPoint(GLfloat cameraDistance);
     GLfloat GetFOV() const;
+    GLfloat GetMovementSpeed() const { return m_movementSpeed; }
+    GLfloat GetTurnSpeed() const { return m_turnSpeed; }
+    GLfloat GetPitchFactor() const { return m_pitchFactor; }
+    GLfloat GetYawFactor() const { return m_yawFactor; }
+    GLboolean GetIsYawGlobal() const { return m_isYawGlobal; }
 
     void SetFOV(GLfloat l_FOV);
+    void SetMovementSpeed(GLfloat l_movementSpeed) { m_movementSpeed = l_movementSpeed; }
+    void SetTurnSpeed(GLfloat l_turnSpeed) { m_turnSpeed = l_turnSpeed; }
+    void SetPitchFactor(GLfloat l_pitchFactor) { m_pitchFactor = l_pitchFactor; }
+    void SetYawFactor(GLfloat l_yawFactor) { m_yawFactor = l_yawFactor; }
+    void SetIsYawGlobal(GLboolean l_isYawGlobal) { m_isYawGlobal = l_isYawGlobal; }
 
     void ToggleYawGlobal();
 
-    void HandleInput();
+    void HandleInput(GLint l_xDelta, GLint l_yDelta);
     void ChangeMovementSpeed(GLfloat delta);
     void Update(GLint l_elapsed);
 
 private:
-    SharedContext* m_sharedContext;
-
     GLfloat m_FOV;
     GLfloat m_movementSpeed;
     GLfloat m_turnSpeed;
     GLfloat m_pitchFactor = 0.1;
     GLfloat m_yawFactor   = 0.05;
     GLfloat m_isYawGlobal = true;
-
-    GLboolean m_flagReleaseMouse = true;
-    GLint m_cooldown             = 0;
 
     MatrixFloat m_viewMatrix;
 };

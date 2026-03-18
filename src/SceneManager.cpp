@@ -1,12 +1,9 @@
 #include "SceneManager.h"
 
 SceneManager::SceneManager(SharedContext* l_sharedContext) : m_sharedContext{ l_sharedContext },
-                                                             m_camera(-1, l_sharedContext, 30.0f, 0.05f, 0.3f,
+                                                             m_camera(-1, 30.0f, 0.05f, 0.3f,
                                                                       { 0.0f, 0.0f, 0.0f },
-                                                                      { 0.0f, 0.0f, 3.0f }, { 1.0f, 1.0f, 1.0f })
-{
-    m_sharedContext->camera = &m_camera;
-}
+                                                                      { 0.0f, 0.0f, 3.0f }, { 1.0f, 1.0f, 1.0f }) {}
 
 SceneManager::~SceneManager()
 {
@@ -108,7 +105,29 @@ void SceneManager::HandleInput()
         }
     }
 
-    m_camera.HandleInput();
+    GLint xDelta = 0;
+    GLint yDelta = 0;
+    if (!m_flagReleaseMouse)
+    {
+        sf::Vector2i mousePosition = sf::Mouse::getPosition(*m_sharedContext->window->GetWindow());
+        sf::Vector2i windowCenter  = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
+                                                  m_sharedContext->window->GetWindowSize().y / 2);
+        xDelta                     = mousePosition.x - windowCenter.x;
+        yDelta                     = mousePosition.y - windowCenter.y;
+        sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
+    }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::M) and m_mouseCooldown < m_sharedContext->m_cooldownDeadZone)
+    {
+        m_mouseCooldown    = m_sharedContext->m_cooldownResetValue;
+        m_flagReleaseMouse = !m_flagReleaseMouse;
+        (*m_sharedContext->window->GetWindow()).setMouseCursorVisible(m_flagReleaseMouse);
+        sf::Vector2i windowCenter = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
+                                                 m_sharedContext->window->GetWindowSize().y / 2);
+        sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
+    }
+
+    m_camera.HandleInput(xDelta, yDelta);
 }
 
 void SceneManager::Update(GLint l_elapsed)
@@ -122,6 +141,18 @@ void SceneManager::Update(GLint l_elapsed)
         else
         {
             m_pickingCooldown = m_pickingCooldown - l_elapsed;
+        }
+    }
+
+    if (m_mouseCooldown > 0)
+    {
+        if (m_mouseCooldown - l_elapsed < 0)
+        {
+            m_mouseCooldown = 0;
+        }
+        else
+        {
+            m_mouseCooldown -= l_elapsed;
         }
     }
 
@@ -140,9 +171,9 @@ void SceneManager::Update(GLint l_elapsed)
 
 void SceneManager::Render()
 {
-    sf::Vector3f m_cameraPosition = m_sharedContext->camera->GetPosition(); // TODO maybe i should do these computations in update...
+    sf::Vector3f m_cameraPosition = m_camera.GetPosition(); // TODO maybe i should do these computations in update...
 
-    m_viewMatrix = m_sharedContext->camera->GetViewMatrix();
+    m_viewMatrix = m_camera.GetViewMatrix();
 
     if (m_flagProjection)
     {
@@ -152,7 +183,7 @@ void SceneManager::Render()
     }
     else
     {
-        m_projectionMatrix.PerspectiveProjection(m_sharedContext->camera->GetFOV(),
+        m_projectionMatrix.PerspectiveProjection(m_camera.GetFOV(),
                                                  (float)m_sharedContext->window->GetWindowSize().x /
                                                      (float)m_sharedContext->window->GetWindowSize().y,
                                                  m_nearDistance, m_rearDistance);

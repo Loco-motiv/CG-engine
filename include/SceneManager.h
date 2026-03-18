@@ -53,6 +53,7 @@ public:
 
     size_t GetObjectCount() const { return m_objects.size(); }
     const std::vector<std::unique_ptr<Object>>& GetObjects() const { return m_objects; }
+    Camera* GetCamera() { return &m_camera; }
 
     MatrixFloat GetProjectionMatrix() const { return m_projectionMatrix; }
     MatrixFloat GetViewMatrix() const { return m_viewMatrix; }
@@ -67,7 +68,10 @@ private:
     GLfloat m_nearDistance = 0.1f;
     GLfloat m_rearDistance = 100.0f;
 
-    GLboolean m_flagProjection = false;
+    GLboolean m_flagProjection   = false;
+    GLboolean m_flagReleaseMouse = true;
+
+    GLint m_mouseCooldown = 0;
 
     GLint m_objectCount     = 0;
     GLint m_spotLightCount  = 0;

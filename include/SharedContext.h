@@ -13,10 +13,9 @@ class Graphics;
 
 struct SharedContext
 {
-    SharedContext() : window(nullptr), graphics(nullptr), camera(nullptr), shader(nullptr), textShader(nullptr), GUIShader(nullptr) {}
+    SharedContext() {}
     Window* window;
     Graphics* graphics;
-    Camera* camera;
     GUI* GUI;
     Shader* shader;
     Shader* textShader;

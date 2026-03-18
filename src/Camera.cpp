@@ -1,17 +1,17 @@
 #include "Camera.h"
 
 Camera::Camera(GLuint l_ID,
-               SharedContext* l_sharedContext,
                GLfloat l_FOV,
                GLfloat l_movementSpeed,
                GLfloat l_turnSpeed,
                sf::Vector3f l_rotation,
                sf::Vector3f l_position,
                sf::Vector3f l_scale) : Object(l_ID, l_position, l_rotation, l_scale),
-                                       m_sharedContext{ l_sharedContext },
                                        m_FOV{ l_FOV },
                                        m_movementSpeed{ l_movementSpeed },
-                                       m_turnSpeed{ l_turnSpeed } {}
+                                       m_turnSpeed{ l_turnSpeed }
+{
+}
 
 Camera::~Camera() {}
 
@@ -49,7 +49,7 @@ void Camera::ToggleYawGlobal()
     m_isYawGlobal = !m_isYawGlobal;
 }
 
-void Camera::HandleInput()
+void Camera::HandleInput(GLint l_xDelta, GLint l_yDelta)
 {
     sf::Vector3f m_move = { 0, 0, 0 };
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
@@ -79,25 +79,8 @@ void Camera::HandleInput()
 
     sf::Vector3f m_rotationDelta{ 0.0f, 0.0f, 0.0f };
 
-    if (!m_flagReleaseMouse)
-    {
-        sf::Vector2i mousePosition  = sf::Mouse::getPosition(*m_sharedContext->window->GetWindow());
-        sf::Vector2i windowCenter   = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
-                                                   m_sharedContext->window->GetWindowSize().y / 2);
-        m_rotationDelta.y          += m_turnSpeed * (mousePosition.x - windowCenter.x) * m_yawFactor;
-        m_rotationDelta.x          += m_turnSpeed * (mousePosition.y - windowCenter.y) * m_pitchFactor;
-        sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
-    }
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::M) and m_cooldown < m_sharedContext->m_cooldownDeadZone)
-    {
-        m_cooldown         = m_sharedContext->m_cooldownResetValue;
-        m_flagReleaseMouse = !m_flagReleaseMouse;
-        (*m_sharedContext->window->GetWindow()).setMouseCursorVisible(m_flagReleaseMouse);
-        sf::Vector2i windowCenter = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
-                                                 m_sharedContext->window->GetWindowSize().y / 2);
-        sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
-    }
+    m_rotationDelta.y += m_turnSpeed * l_xDelta * m_yawFactor;
+    m_rotationDelta.x += m_turnSpeed * l_yDelta * m_pitchFactor;
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z) and !m_isYawGlobal)
     {
@@ -146,15 +129,4 @@ void Camera::ChangeMovementSpeed(GLfloat delta)
 
 void Camera::Update(GLint l_elapsed)
 {
-    if (m_cooldown > 0)
-    {
-        if (m_cooldown - l_elapsed < 0)
-        {
-            m_cooldown = 0;
-        }
-        else
-        {
-            m_cooldown -= l_elapsed;
-        }
-    }
 }

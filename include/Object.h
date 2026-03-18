@@ -35,6 +35,57 @@ enum LightType
 
 struct LightComponent
 {
+    LightComponent() {}
+
+    static LightComponent Directional(sf::Vector3f l_ambient, sf::Vector3f l_diffusive, sf::Vector3f l_specular,
+                                      sf::Vector3f l_direction)
+    {
+        LightComponent directional;
+        directional.type      = LightType::Directional;
+        directional.ambient   = l_ambient;
+        directional.diffusive = l_diffusive;
+        directional.specular  = l_specular;
+        directional.direction = l_direction;
+
+        return directional;
+    }
+
+    static LightComponent Point(sf::Vector3f l_ambient, sf::Vector3f l_diffusive, sf::Vector3f l_specular,
+                                GLfloat l_constant = 1.0f, GLfloat l_linear = 0.09f, GLfloat l_quadratic = 0.032f)
+    {
+        LightComponent point;
+        point.type      = LightType::Point;
+        point.ambient   = l_ambient;
+        point.diffusive = l_diffusive;
+        point.specular  = l_specular;
+
+        point.constant  = l_constant;
+        point.linear    = l_linear;
+        point.quadratic = l_quadratic;
+
+        return point;
+    }
+
+    static LightComponent Spotlight(sf::Vector3f l_ambient, sf::Vector3f l_diffusive, sf::Vector3f l_specular,
+                                    GLfloat l_constant = 1.0f, GLfloat l_linear = 0.09f, GLfloat l_quadratic = 0.032f,
+                                    GLfloat l_cutOff = 12.5f, GLfloat l_outerCutOff = 15.5f)
+    {
+        LightComponent spot;
+        spot.type      = LightType::Spot;
+        spot.ambient   = l_ambient;
+        spot.diffusive = l_diffusive;
+        spot.specular  = l_specular;
+
+        spot.constant  = l_constant;
+        spot.linear    = l_linear;
+        spot.quadratic = l_quadratic;
+
+        spot.cutOff      = l_cutOff;
+        spot.outerCutOff = l_outerCutOff;
+
+        return spot;
+    }
+
     LightType type = LightType::None;
 
     sf::Vector3f ambient;
@@ -42,13 +93,13 @@ struct LightComponent
     sf::Vector3f specular;
 
     //* Point and SpotLight
-    GLfloat constant  = 1.0f;
-    GLfloat linear    = 0.09f;
-    GLfloat quadratic = 0.032f;
+    GLfloat constant;
+    GLfloat linear;
+    GLfloat quadratic;
 
     //* SpotLight
-    GLfloat cutOff      = 12.5f;
-    GLfloat outerCutOff = 15.5f;
+    GLfloat cutOff;
+    GLfloat outerCutOff;
 
     //* SpotLight and Directional
     sf::Vector3f direction;
