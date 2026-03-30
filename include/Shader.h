@@ -1,23 +1,33 @@
 #pragma once
 
+#include "SharedContext.h"
+
+#include <filesystem>
 #include <fstream>
 #include <glad/glad.h>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+
+namespace fs = std::filesystem;
 
 class Shader
 {
 public:
     GLuint ID;
+    std::string name;
 
     Shader();
-    Shader(const GLchar* vertexPath, const GLchar* fragmentPath);
+    Shader(const fs::path& l_path, SharedContext* l_sharedContext);
+    void Create(const GLchar* vertexPath, const GLchar* fragmentPath);
 
-    // TODO ~Shader glDeleteTextures(1, &texture);
-    //*     glDeleteSamplers(1, &sampler);
-    //*     glDeleteBuffers(1, &vbo);
-    //*     glDeleteVertexArrays(1, &vao);
+    ~Shader();
+
+    Shader(const Shader&)             = delete;
+    Shader& operator=(const Shader&)  = delete;
+    Shader(Shader&& other)            = delete;
+    Shader& operator=(Shader&& other) = delete;
 
     void Use() const;
 
@@ -36,4 +46,8 @@ public:
 private:
     void CheckCompileErrors(GLuint shader, const std::string& type) const;
     GLint GetUniformLocation(const std::string& name) const;
+
+    SharedContext* m_sharedContext;
+
+    mutable std::unordered_map<std::string, GLint> m_uniformLocations;
 };

@@ -17,8 +17,9 @@ project(CG_engine)
 find_package(SFML 2.6 COMPONENTS graphics REQUIRED)
 find_package(Freetype REQUIRED)
 
-set(CMAKE_CXX_FLAGS "-Wall -Werror -pedantic -O2")
+set(CMAKE_CXX_FLAGS "-Wall -Werror -pedantic -O0 -g")
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PUBLIC include glad/include "C:/libs/stb")
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC "C:/libs/tinyobjloader")
 target_link_libraries(${PROJECT_NAME} PRIVATE sfml-window opengl32 Freetype::Freetype)

@@ -1,7 +1,11 @@
 #pragma once
 
+#include "Graphics.h"    //TODO remove
 #include "Matrix.h"
+#include "MeshManager.h" //TODO remove
+#include "ShaderManager.h"
 #include "SharedContext.h"
+#include "Window.h" //TODO remove
 
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Window/Keyboard.hpp>

@@ -3,10 +3,7 @@
 Graphics::Graphics()
 {
     ConfigureOpenGL();
-    MakeShaders();
     ConfigureFreeType();
-    MakeVAOs();
-    MakeTextures();
     MakePBOs();
     MakeFBOs();
 }
@@ -206,29 +203,6 @@ void Graphics::ConfigureFreeType()
     m_maxTextHeight = Characters['T'].bearingTop + Characters['p'].sizeY - Characters['p'].bearingTop;
 }
 
-void Graphics::MakeShaders()
-{
-    m_shader = { "shaders/Main.vert", "shaders/Main.frag" };
-    m_shader.SetInt("material.diffuse", 1);
-    m_shader.SetInt("material.specular", 2);
-    m_textShader    = { "shaders/Text.vert", "shaders/Text.frag" };
-    m_GUIShader     = { "shaders/GUI.vert", "shaders/GUI.frag" };
-    m_pickingShader = { "shaders/Picking.vert", "shaders/Picking.frag" };
-}
-
-void Graphics::MakeVAOs()
-{
-    m_meshes.push_back(MakeCubeVAO());
-    m_meshes.push_back(MakeSphereVAO());
-    m_meshes.push_back(MakeRectangleVAO());
-}
-
-void Graphics::MakeTextures()
-{
-    m_textures.push_back({ MakeTexture("resources/textures/diamond_ore.png"),
-                           MakeTexture("resources/textures/diamond_ore_spec.png"), "Diamond" });
-}
-
 void Graphics::MakePBOs()
 {
     MakePickingPBO();
@@ -286,134 +260,181 @@ GLuint Graphics::MakeTexture(char const* path)
     return textureID;
 }
 
+void Graphics::FreeTexture(const GLuint l_id)
+{
+    glDeleteTextures(1, &l_id);
+}
+
+std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeMesh(const std::string path) // TODO i definitely made this way too complicated
+{
+    struct Vertex
+    {
+        GLfloat px, py, pz;
+        GLfloat nx, ny, nz;
+        GLfloat u, v;
+
+        bool operator==(const Vertex& other) const
+        {
+            return memcmp(this, &other, sizeof(Vertex)) == 0;
+        }
+    };
+
+    struct VertexHash
+    {
+        static inline uint32_t mix(uint32_t x)
+        {
+            x ^= x >> 16;
+            x *= 0x21f0aaad;
+            x ^= x >> 15;
+            x *= 0x735a2d97;
+            x ^= x >> 15;
+            return x;
+        }
+
+        static inline void hash_combine(uint32_t& seed, uint32_t v)
+        {
+            seed = mix(seed + 0x9e3779b9u + v);
+        }
+
+        size_t operator()(const Vertex& v) const
+        {
+            uint32_t seed = 0;
+
+            constexpr size_t count = sizeof(Vertex) / sizeof(uint32_t);
+            uint32_t data[count];
+            memcpy(data, &v, sizeof(Vertex));
+
+            for (size_t i = 0; i < count; i++)
+            {
+                hash_combine(seed, data[i]);
+            }
+
+            return seed;
+        }
+    };
+
+    tinyobj::ObjReaderConfig readerConfig;
+    // TODO readerConfig.mtl_search_path = "./";
+    readerConfig.triangulate = true;
+
+    tinyobj::ObjReader reader;
+
+    if (!reader.ParseFromFile(path, readerConfig))
+    {
+        if (!reader.Error().empty())
+        {
+            std::cout << "ERROR::TINYOBJREADER: " << reader.Error();
+        }
+        return { 0, 0, 0, 0 };
+    }
+
+    if (!reader.Warning().empty())
+    {
+        std::cout << "ERROR::TINYOBJREADER: " << reader.Warning();
+    }
+
+    auto& attrib = reader.GetAttrib();
+    auto& shapes = reader.GetShapes();
+    // auto& materials = reader.GetMaterials();
+
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+
+    std::unordered_map<Vertex, uint32_t, VertexHash> uniqueVertices;
+
+    // Loop over shapes
+    for (size_t s = 0; s < shapes.size(); s++)
+    {
+        // Loop over faces(polygon)
+        size_t index_offset = 0;
+        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++)
+        {
+            size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+
+            // Loop over vertices in the face.
+            for (size_t v = 0; v < fv; v++)
+            {
+                // access to vertex
+                tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+
+                Vertex vert{};
+
+                //* position
+                vert.px = attrib.vertices[3 * idx.vertex_index + 0];
+                vert.py = attrib.vertices[3 * idx.vertex_index + 1];
+                vert.pz = attrib.vertices[3 * idx.vertex_index + 2];
+
+                //* normal
+                if (idx.normal_index >= 0)
+                {
+                    vert.nx = attrib.normals[3 * idx.normal_index + 0];
+                    vert.ny = attrib.normals[3 * idx.normal_index + 1];
+                    vert.nz = attrib.normals[3 * idx.normal_index + 2];
+                }
+
+                //* uv
+                if (idx.texcoord_index >= 0)
+                {
+                    vert.u = attrib.texcoords[2 * idx.texcoord_index + 0];
+                    vert.v = attrib.texcoords[2 * idx.texcoord_index + 1];
+                }
+
+                //* deduplication
+                if (uniqueVertices.count(vert) == 0)
+                {
+                    uint32_t newIndex    = static_cast<uint32_t>(vertices.size());
+                    uniqueVertices[vert] = newIndex;
+                    vertices.push_back(vert);
+                }
+
+                indices.push_back(uniqueVertices[vert]);
+            }
+            index_offset += fv;
+
+            // per-face material
+            // shapes[s].mesh.material_ids[f];
+        }
+        // TODO implement one shape = one mesh
+    }
+    GLuint VAO, VBO, IBO;
+
+    glCreateVertexArrays(1, &VAO);
+
+    glCreateBuffers(1, &VBO);
+    glNamedBufferData(VBO, vertices.size() * sizeof(Vertex),
+                      vertices.data(), GL_STATIC_DRAW);
+
+    glCreateBuffers(1, &IBO);
+    glNamedBufferData(IBO, indices.size() * sizeof(uint32_t),
+                      indices.data(), GL_STATIC_DRAW);
+
+    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
+    glVertexArrayElementBuffer(VAO, IBO);
+
+    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, px));
+    glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, nx));
+    glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, u));
+
+    glVertexArrayAttribBinding(VAO, 0, 0);
+    glVertexArrayAttribBinding(VAO, 1, 0);
+    glVertexArrayAttribBinding(VAO, 2, 0);
+
+    glEnableVertexArrayAttrib(VAO, 0);
+    glEnableVertexArrayAttrib(VAO, 1);
+    glEnableVertexArrayAttrib(VAO, 2);
+
+    return { VAO, VBO, IBO, indices.size() };
+}
+
+void Graphics::FreeMesh(GLuint l_VAO, GLuint l_VBO, GLuint l_IBO)
+{
+    glDeleteVertexArrays(1, &l_VAO);
+    glDeleteBuffers(1, &l_VBO);
+    glDeleteBuffers(1, &l_IBO);
+}
+
 void Graphics::FreeObjects()
 {
-}
-
-Mesh Graphics::MakeCubeVAO()
-{
-    GLfloat vertices[24][8] = {
-        //*Coordinates        |Normals             |Texture coordinates
-        //*Front face         |                    |
-        {  0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f }, //* top right front
-        {  0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f }, //* bottom right front
-        { -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f }, //* bottom left front
-        { -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f }, //* top left front
-        //* Back face         |                    |
-        {  0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f }, //* top right back
-        {  0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f }, //* bottom right back
-        { -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f }, //* bottom left back
-        { -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f }, //* top left back
-        //* Left face         |                    |
-        { -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f }, //* top left front
-        { -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f }, //* bottom left front
-        { -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f }, //* bottom left back
-        { -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f }, //* top left back
-        //* Right face        |                    |
-        {  0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f }, //* top right front
-        {  0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f }, //* bottom right front
-        {  0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f }, //* bottom right back
-        {  0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f }, //* top right back
-        //* Top face          |                    |
-        {  0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f }, //* top right front
-        {  0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f }, //* top right back
-        { -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f }, //* top left back
-        { -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f }, //* top left front
-        //* Bottom face       |                    |
-        {  0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f }, //* bottom right front
-        {  0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f }, //* bottom right back
-        { -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f }, //* bottom left back
-        { -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f }  //* bottom left front
-    };
-
-    GLuint indices[12][3] = {
-        //* Front face
-        {  0,  3,  2 },
-        {  2,  1,  0 },
-        //* Back face
-        {  7,  4,  5 },
-        {  5,  6,  7 },
-        //* Left face
-        {  8, 11, 10 },
-        { 10,  9,  8 },
-        //* Right face
-        { 15, 12, 14 },
-        { 12, 13, 14 },
-        //* Top face
-        { 19, 16, 17 },
-        { 17, 18, 19 },
-        //* Bottom face
-        { 20, 23, 22 },
-        { 22, 21, 20 }
-    };
-
-    GLuint m_cubeVBO, m_cubeVAO, m_cubeIBO;
-    glCreateBuffers(1, &m_cubeVBO);
-    glNamedBufferData(m_cubeVBO, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glCreateBuffers(1, &m_cubeIBO);
-    glNamedBufferData(m_cubeIBO, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glCreateVertexArrays(1, &m_cubeVAO);
-
-    glVertexArrayVertexBuffer(m_cubeVAO, 0, m_cubeVBO, 0, 8 * sizeof(GL_FLOAT));
-    glVertexArrayElementBuffer(m_cubeVAO, m_cubeIBO);
-
-    glVertexArrayAttribFormat(m_cubeVAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
-    glVertexArrayAttribFormat(m_cubeVAO, 1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GL_FLOAT));
-    glVertexArrayAttribFormat(m_cubeVAO, 2, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(GL_FLOAT));
-
-    glVertexArrayAttribBinding(m_cubeVAO, 0, 0);
-    glVertexArrayAttribBinding(m_cubeVAO, 1, 0);
-    glVertexArrayAttribBinding(m_cubeVAO, 2, 0);
-
-    glEnableVertexArrayAttrib(m_cubeVAO, 0);
-    glEnableVertexArrayAttrib(m_cubeVAO, 1);
-    glEnableVertexArrayAttrib(m_cubeVAO, 2);
-
-    return { m_cubeVAO, 36, "Cube" };
-}
-
-Mesh Graphics::MakeRectangleVAO()
-{
-    GLfloat vertices[4][6] = {
-        //*coordinates        colors
-        {  0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 1.0f }, //* top right
-        {  0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f }, //* bottom right
-        { -0.5f, -0.5f, 0.0f, 1.0f, 1.0f, 1.0f }, //* bottom left
-        { -0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 1.0f }  //* top left
-    };
-    GLuint indices[2][3] = {
-        //* top part
-        { 0, 3, 1 },
-        //* bottom part
-        { 3, 2, 1 }
-    };
-
-    GLuint pointsVBO;
-    glCreateBuffers(1, &pointsVBO);
-    glNamedBufferData(pointsVBO, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    GLuint pointsIBO;
-    glCreateBuffers(1, &pointsIBO);
-    glNamedBufferData(pointsIBO, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    GLuint m_rectangleVAO;
-    glCreateVertexArrays(1, &m_rectangleVAO);
-
-    glVertexArrayVertexBuffer(m_rectangleVAO, 0, pointsVBO, 0, 6 * sizeof(GL_FLOAT));
-    glVertexArrayElementBuffer(m_rectangleVAO, pointsIBO);
-
-    glVertexArrayAttribFormat(m_rectangleVAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
-    glVertexArrayAttribFormat(m_rectangleVAO, 1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GL_FLOAT));
-
-    glVertexArrayAttribBinding(m_rectangleVAO, 0, 0);
-    glVertexArrayAttribBinding(m_rectangleVAO, 1, 0);
-
-    glEnableVertexArrayAttrib(m_rectangleVAO, 0);
-    glEnableVertexArrayAttrib(m_rectangleVAO, 1);
-
-    return { m_rectangleVAO, 6, "Rectangle" };
 }
 
 void Graphics::MakePickingPBO()
@@ -452,146 +473,16 @@ void Graphics::MakePickingFBO(GLuint l_width, GLuint l_height)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-Mesh Graphics::MakeSphereVAO()
+void Graphics::DrawMesh(GLuint l_meshID, GLuint elementsCount)
 {
-    std::vector<GLfloat> vertices;
-    std::vector<GLfloat> normals;
-    std::vector<GLuint> indices;
-
-    GLfloat radius    = 1.0f;
-    GLint sectorCount = 36;
-    GLint stackCount  = 18;
-
-    GLfloat x, y, z, xy;                           // vertex position
-    GLfloat nx, ny, nz, lengthInv = 1.0f / radius; // normal
-
-    GLfloat sectorStep = 2 * PI / sectorCount;
-    GLfloat stackStep  = PI / stackCount;
-    GLfloat sectorAngle, stackAngle;
-
-    for (GLint i = 0; i <= stackCount; ++i)
-    {
-        stackAngle = PI / 2 - i * stackStep;    // starting from pi/2 to -pi/2
-        xy         = radius * cosf(stackAngle); // r * cos(u)
-        z          = radius * sinf(stackAngle); // r * sin(u)
-
-        // add (sectorCount+1) vertices per stack
-        // the first and last vertices have same position and normal, but different tex coords
-        for (GLint j = 0; j <= sectorCount; ++j)
-        {
-            sectorAngle = j * sectorStep; // starting from 0 to 2pi
-
-            // vertex position
-            x = xy * cosf(sectorAngle); // r * cos(u) * cos(v)
-            y = xy * sinf(sectorAngle); // r * cos(u) * sin(v)
-            vertices.push_back(x);
-            vertices.push_back(y);
-            vertices.push_back(z);
-
-            // normalized vertex normal
-            nx = x * lengthInv;
-            ny = y * lengthInv;
-            nz = z * lengthInv;
-            normals.push_back(nx);
-            normals.push_back(ny);
-            normals.push_back(nz);
-        }
-    }
-
-    // indices
-    //  k1--k1+1
-    //  |  / |
-    //  | /  |
-    //  k2--k2+1
-    GLuint k1, k2;
-    for (GLint i = 0; i < stackCount; ++i)
-    {
-        k1 = i * (sectorCount + 1); // beginning of current stack
-        k2 = k1 + sectorCount + 1;  // beginning of next stack
-
-        for (GLint j = 0; j < sectorCount; ++j, ++k1, ++k2)
-        {
-            // 2 triangles per sector excluding 1st and last stacks
-            if (i != 0)
-            {
-                // k1---k2---k1+1
-                indices.push_back(k1);
-                indices.push_back(k2);
-                indices.push_back(k1 + 1);
-            }
-
-            if (i != (stackCount - 1))
-            {
-                // k1+1---k2---k2+1
-                indices.push_back(k1 + 1);
-                indices.push_back(k2);
-                indices.push_back(k2 + 1);
-            }
-        }
-    }
-
-    // generate interleaved vertex array as well
-    std::vector<float> interleavedVertices;
-
-    std::size_t i, j;
-    std::size_t count = vertices.size();
-    for (i = 0, j = 0; i < count; i += 3, j += 2)
-    {
-        interleavedVertices.push_back(vertices[i]);
-        interleavedVertices.push_back(vertices[i + 1]);
-        interleavedVertices.push_back(vertices[i + 2]);
-
-        interleavedVertices.push_back(normals[i]);
-        interleavedVertices.push_back(normals[i + 1]);
-        interleavedVertices.push_back(normals[i + 2]);
-    }
-    // Generate and bind the Vertex Array Object
-    GLuint m_sphereVAO, m_sphereVBO, m_sphereIBO, m_sphereIndexCount;
-    glCreateVertexArrays(1, &m_sphereVAO);
-    glBindVertexArray(m_sphereVAO);
-
-    // Generate and bind the Vertex Buffer Object
-    glCreateBuffers(1, &m_sphereVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, m_sphereVBO);
-    glNamedBufferData(m_sphereVBO, interleavedVertices.size() * sizeof(GLfloat), interleavedVertices.data(), GL_STATIC_DRAW);
-
-    // Generate and bind the Element Buffer Object
-    glCreateBuffers(1, &m_sphereIBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_sphereIBO);
-    glNamedBufferData(m_sphereIBO, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-
-    // Define the vertex attributes for the interleaved data
-    const GLuint stride              = 6 * sizeof(GLfloat);
-    const GLuint positionAttribIndex = 0;
-    const GLuint normalAttribIndex   = 1;
-
-    // Position attribute
-    glEnableVertexAttribArray(positionAttribIndex);
-    glVertexAttribPointer(positionAttribIndex, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
-
-    // Normal attribute
-    glEnableVertexAttribArray(normalAttribIndex);
-    glVertexAttribPointer(normalAttribIndex, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(GLfloat)));
-
-    m_sphereIndexCount = indices.size();
-
-    return { m_sphereVAO, m_sphereIndexCount, "Sphere" };
-}
-
-void Graphics::DrawMesh(GLuint l_meshID)
-{
-    glBindVertexArray(m_meshes[l_meshID].ID);
-    glDrawElements(GL_TRIANGLES, m_meshes[l_meshID].verticesCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(l_meshID);
+    glDrawElements(GL_TRIANGLES, elementsCount, GL_UNSIGNED_INT, 0);
 }
 
 void Graphics::RenderText(const std::string& text, GLfloat x, GLfloat y,
                           GLfloat sx, GLfloat sy, GLfloat scale,
                           GLfloat colorR, GLfloat colorG, GLfloat colorB)
 {
-    // activate corresponding render state
-    m_textShader.Use();
-    m_textShader.SetFloatVec3("textColor", colorR, colorG, colorB);
-
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(m_textVAO);
 

@@ -3,25 +3,24 @@
 #include "Matrix.h"
 #include "Object.h"
 #include "Quaternion.h"
-#include "SharedContext.h"
 #include "Vector.h"
 
 #include <SFML/Window.hpp>
 #include <SFML/Window/Keyboard.hpp>
 
-class SharedContext;
-
 class Camera : public Object
 {
 public:
+    Camera();
     Camera(GLuint l_ID,
            GLfloat l_FOV,
            GLfloat l_movementSpeed,
            GLfloat l_turnSpeed,
-           sf::Vector3f l_rotation,
-           sf::Vector3f l_position,
-           sf::Vector3f l_scale);
+           Transform l_transform);
     ~Camera();
+
+    friend std::ostream& operator<<(std::ostream& os, const Camera& camera);
+    friend std::istream& operator>>(std::istream& is, Camera& camera);
 
     MatrixFloat GetViewMatrix();
     sf::Vector3f GetTargetPoint(GLfloat cameraDistance);

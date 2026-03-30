@@ -1,8 +1,9 @@
 #version 460 core
 
+layout(binding = 1) uniform sampler2D diffuse;
+layout(binding = 2) uniform sampler2D specular;
+
 struct Material {
-    sampler2D diffuse;
-    sampler2D specular;
     float shininess;
     float alpha;
     vec3 colour;
@@ -73,10 +74,10 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec
 
 void main()
 {    
-    vec3 baseDiffuse = material.hasDiffuseTexture ? texture(material.diffuse, texturePosition).rgb : vec3(1.0);
+    vec3 baseDiffuse = material.hasDiffuseTexture ? texture(diffuse, texturePosition).rgb : vec3(1.0);
     baseDiffuse *=  material.colour;
 
-    vec3 baseSpecular = material.hasSpecularTexture ? texture(material.specular, texturePosition).rgb : vec3(1.0);
+    vec3 baseSpecular = material.hasSpecularTexture ? texture(specular, texturePosition).rgb : vec3(1.0);
     baseSpecular *= material.colour; //TODO do i need u?
 
     // properties

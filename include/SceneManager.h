@@ -1,10 +1,21 @@
 #pragma once
 
+#include "Camera.h"
+#include "GUI.h"
+#include "MaterialManager.h"
+#include "MeshManager.h"
 #include "Object.h"
+#include "Renderer.h"
+#include "ShaderManager.h"
 #include "SharedContext.h"
+#include "Window.h"
 
 #include <SFML/Window.hpp>
 #include <SFML/Window/Keyboard.hpp>
+#include <chrono>
+#include <filesystem>
+#include <format>
+#include <fstream>
 #include <memory>
 #include <vector>
 
@@ -16,22 +27,19 @@ public:
     SceneManager(SharedContext* l_sharedContext);
     ~SceneManager();
 
-    Object* MakeCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                     Material l_material);
-    Object* MakeSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                       Material l_material);
-    Object* MakePointLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                           LightComponent l_light);
-    Object* MakeLightCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                          LightComponent l_light);
-    Object* MakeLightSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                            LightComponent l_light);
-    Object* MakeDirectionalLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                                 LightComponent l_light);
-    Object* MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                          LightComponent l_light);
-    Object* MakeObject(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                       Material l_material, MeshInfo l_mesh, LightComponent l_light);
+    void LoadScene(const fs::path& l_scenePath);
+    void SaveScene(const fs::path& l_scenePath, std::string_view l_name = "Scene");
+
+    Object* MakeCube(Transform l_transform, std::string l_materialName);
+    Object* MakeSphere(Transform l_transform, std::string l_materialName);
+    Object* MakePointLight(Transform l_transform, LightComponent l_light);
+    Object* MakeLightCube(Transform l_transform, LightComponent l_light);
+    Object* MakeLightSphere(Transform l_transform, LightComponent l_light);
+    Object* MakeDirectionalLight(Transform l_transform, LightComponent l_light);
+    Object* MakeSpotLight(Transform l_transform, LightComponent l_light);
+    Object* MakeObject(Transform l_transform, std::string l_meshName, std::string l_materialName, LightComponent l_light);
+    Object* MakeObject(Transform l_transform, std::string l_meshName, std::string l_materialName, LightComponent l_light, std::string l_shaderName);
+    Object* MakeObject(GLuint l_ID, Transform l_transform, std::string l_meshName, std::string l_materialName, LightComponent l_light, std::string l_shaderName);
 
     void HandleInput();
     void Update(GLint l_elapsed);
@@ -53,6 +61,19 @@ public:
 
     size_t GetObjectCount() const { return m_objects.size(); }
     const std::vector<std::unique_ptr<Object>>& GetObjects() const { return m_objects; }
+    Object* GetObject(GLint l_id) const
+    {
+        for (const auto& object : m_objects)
+        {
+            std::cout << object->GetID() << '\n';
+
+            if (object->GetID() == l_id)
+            {
+                return object.get();
+            }
+        }
+        return nullptr;
+    }
     Camera* GetCamera() { return &m_camera; }
 
     MatrixFloat GetProjectionMatrix() const { return m_projectionMatrix; }
@@ -85,7 +106,4 @@ private:
     GLint m_pickingCooldown     = 0;
 
     std::vector<std::unique_ptr<Object>> m_objects;
-
-    void RenderPicking();
-    void UpdateLightData(std::unique_ptr<Object>& l_object, Shader* shader, int pointLightCount, int spotLightCount);
 };

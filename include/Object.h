@@ -1,29 +1,37 @@
 #pragma once
 
+#include "Material.h"
 #include "Matrix.h"
+#include "Mesh.h"
 #include "Quaternion.h"
 #include "Shader.h"
 #include "Vector.h"
 
 class Shader;
 
-struct Material
+struct Transform
 {
-    GLuint diffuseTexture  = 0;
-    GLuint specularTexture = 0;
-    GLuint shininess       = 32;
-    GLfloat alpha          = 1.0f;
-    sf::Vector3f colour    = sf::Vector3f(1.0f, 1.0f, 1.0f); //* defaults to white
+    Transform() {}
+    Transform(GLfloat positionX, GLfloat positionY, GLfloat positionZ) : position{ positionX, positionY, positionZ } {}
+    Transform(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale)
+        : position{ l_position }, rotation{ l_rotation }, scale{ l_scale } {}
 
-    bool hasDiffuseTexture  = false;
-    bool hasSpecularTexture = false;
+    sf::Vector3f position = { 0.0f, 0.0f, 0.0f };
+    Quaternion rotation   = { 1.0f, 0.0f, 0.0f, 0.0f };
+    sf::Vector3f scale    = { 1.0f, 1.0f, 1.0f };
 };
 
-struct MeshInfo
+inline std::ostream& operator<<(std::ostream& os, const Transform& t)
 {
-    GLuint ID     = 0;
-    bool isActive = false;
-};
+    return os << t.position.x << " " << t.position.y << " " << t.position.z << " "
+              << t.rotation.x << " " << t.rotation.y << " " << t.rotation.z << " " << t.rotation.s << " "
+              << t.scale.x << " " << t.scale.y << " " << t.scale.z;
+}
+
+inline std::istream& operator>>(std::istream& is, Transform& t)
+{
+    return is >> t.position.x >> t.position.y >> t.position.z >> t.rotation.x >> t.rotation.y >> t.rotation.z >> t.rotation.s >> t.scale.x >> t.scale.y >> t.scale.z;
+}
 
 enum LightType
 {
@@ -107,43 +115,74 @@ struct LightComponent
     GLboolean hasChanges = true; //* if lightComponent is changed scene manager need to update shader
 };
 
+inline std::ostream& operator<<(std::ostream& os, const LightComponent& l)
+{
+    return os << (int)l.type << " " << l.ambient.x << " " << l.ambient.y << " " << l.ambient.z << " "
+              << l.diffusive.x << " " << l.diffusive.y << " " << l.diffusive.z << " "
+              << l.specular.x << " " << l.specular.y << " " << l.specular.z << " "
+              << l.constant << " " << l.linear << " " << l.quadratic << " "
+              << l.cutOff << " " << l.outerCutOff << " "
+              << l.direction.x << " " << l.direction.y << " " << l.direction.z;
+}
+
+inline std::istream& operator>>(std::istream& is, LightComponent& l)
+{
+    int type;
+    is >> type >> l.ambient.x >> l.ambient.y >> l.ambient.z >> l.diffusive.x >> l.diffusive.y >> l.diffusive.z >> l.specular.x >> l.specular.y >> l.specular.z >> l.constant >> l.linear >> l.quadratic >> l.cutOff >> l.outerCutOff >> l.direction.x >> l.direction.y >> l.direction.z;
+    l.type = static_cast<LightType>(type);
+    return is;
+}
+
 class Object
 {
 public:
+    Object();
     Object(GLint l_ID);
-    Object(GLint l_ID, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale);
-    Object(GLint l_ID, sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-           Material l_material, MeshInfo l_mesh, LightComponent l_light);
+    Object(GLint l_ID, Transform l_transform);
+    Object(GLint l_ID, Transform l_transform,
+           std::shared_ptr<Material> l_material, std::shared_ptr<Mesh> l_mesh, LightComponent l_light);
     ~Object() = default;
+
+    friend std::ostream& operator<<(std::ostream& os, const Object& obj);
 
     //* Getters
     GLint GetID() const { return m_ID; }
-    sf::Vector3f GetPosition() const { return m_position; }
-    sf::Vector3f GetRotation() const { return m_rotation.GetEulerAngles(); }
-    sf::Vector3f GetScale() const { return m_scale; }
+    sf::Vector3f GetPosition() const { return m_transform.position; }
+    sf::Vector3f GetRotation() const { return m_transform.rotation.GetEulerAngles(); }
+    sf::Vector3f GetScale() const { return m_transform.scale; }
     MatrixFloat GetModelMatrix() const { return m_modelMatrix; }
     MatrixFloat GetTransformMatrix() const { return m_transformMatrix; }
-    MeshInfo GetMesh() const { return m_mesh; }
-    Material GetMaterial() const { return m_material; }
+    Mesh* GetMesh() const { return m_mesh.get(); }
+    Material* GetMaterial()
+    {
+        // if (m_material.use_count() > 1)
+        // {
+        //     m_material = std::make_shared<Material>(*m_material);
+        // }
+        return m_material.get();
+    }
+    // Material* GetMaterialShared() const { return m_material.get(); } //TODO realize
+    Shader* GetShader() const { return m_shader.get(); }
     LightComponent GetLight() const { return m_light; }
 
     //* Setters
+    void SetID(GLint l_ID) { m_ID = l_ID; }
     void SetPosition(const sf::Vector3f& l_position)
     {
-        m_position         = l_position;
-        m_light.hasChanges = true;
+        m_transform.position = l_position;
+        m_light.hasChanges   = true;
         RecalculateModelMatrix();
     }
 
     void SetRotation(const sf::Vector3f& l_rotation)
     {
-        m_rotation = l_rotation;
+        m_transform.rotation = l_rotation;
         RecalculateModelMatrix();
     }
 
     void SetScale(const sf::Vector3f& l_scale)
     {
-        m_scale = l_scale;
+        m_transform.scale = l_scale;
         RecalculateModelMatrix();
     }
 
@@ -162,14 +201,19 @@ public:
         m_transformMatrix = projectionViewMatrix * m_modelMatrix;
     }
 
-    void SetMesh(MeshInfo l_mesh)
+    void SetMesh(std::shared_ptr<Mesh> l_mesh)
     {
         m_mesh = l_mesh;
     }
 
-    void SetMaterial(const Material& l_material)
+    void SetMaterial(std::shared_ptr<Material> l_material)
     {
         m_material = l_material;
+    }
+
+    void SetShader(std::shared_ptr<Shader> l_shader)
+    {
+        m_shader = l_shader;
     }
 
     void SetLight(const LightComponent& l_light)
@@ -190,12 +234,11 @@ public:
 protected:
     GLint m_ID;
 
-    sf::Vector3f m_position;
-    Quaternion m_rotation;
-    sf::Vector3f m_scale;
+    Transform m_transform;
 
-    Material m_material;
-    MeshInfo m_mesh;
+    std::shared_ptr<Material> m_material;
+    std::shared_ptr<Mesh> m_mesh;
+    std::shared_ptr<Shader> m_shader;
     LightComponent m_light;
 
     MatrixFloat m_modelMatrix;
@@ -207,9 +250,9 @@ protected:
         MatrixFloat rotateMatrix;
         MatrixFloat scaleMatrix;
 
-        translateMatrix.Move(m_position.x, m_position.y, m_position.z);
-        rotateMatrix = m_rotation.GetMatrix();
-        scaleMatrix.ScaleXYZ(m_scale.x, m_scale.y, m_scale.z);
+        translateMatrix.Move(m_transform.position.x, m_transform.position.y, m_transform.position.z);
+        rotateMatrix = m_transform.rotation.GetMatrix();
+        scaleMatrix.ScaleXYZ(m_transform.scale.x, m_transform.scale.y, m_transform.scale.z);
 
         m_modelMatrix = translateMatrix * rotateMatrix * scaleMatrix;
     }

@@ -39,21 +39,22 @@ void Button::Render()
                          (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f,
                          0.0f); //! TODO move to init
 
-    m_GUI->m_sharedContext->GUIShader->SetFloatMatrix("transformMatrix",
-                                                      transformMatrix.GetArray());
+    m_GUI->m_sharedContext->shaderManager->Get("GUI.txt")->SetFloatMatrix("transformMatrix",
+                                                                          transformMatrix.GetArray());
     if (m_cooldown > 0)
     {
-        m_GUI->m_sharedContext->GUIShader->SetFloat("alpha", 0.5f); // TODO Make button grey not opaque
-        m_GUI->m_sharedContext->textShader->SetFloat("alpha", 0.5f);
+        m_GUI->m_sharedContext->shaderManager->Get("GUI.txt")->SetFloat("alpha", 0.5f); // TODO Make button grey not opaque
+        m_GUI->m_sharedContext->shaderManager->Get("Text.txt")->SetFloat("alpha", 0.5f);
     }
 
-    m_GUI->m_sharedContext->GUIShader->Use();
-    m_GUI->m_sharedContext->graphics->DrawMesh(2); //* draw rectangle
-
+    // m_GUI->m_sharedContext->shaderManager->Get("GUI.txt")->Use();
+    m_GUI->m_sharedContext->graphics->DrawMesh(m_GUI->m_sharedContext->meshManager->Get("rectangle.obj")->VAO, m_GUI->m_sharedContext->meshManager->Get("rectangle.obj")->elementsCount); //* draw rectangle
     sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_name,
                                                                                 m_GUI->m_NDCTransformerX,
                                                                                 m_GUI->m_NDCTransformerY,
                                                                                 m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY));
+    // m_GUI->m_sharedContext->shaderManager->Get("Text.txt")->Use();
+    m_GUI->m_sharedContext->shaderManager->Get("Text.txt")->SetFloatVec3("textColor", 0.1f, 0.1f, 0.9f);
     m_GUI->m_sharedContext->graphics->RenderText(m_name, (m_GUI->m_leftBorder + m_GUI->m_rightBorder - textSize.x) / 2.0f,
                                                  m_topBorder - (m_GUI->m_elementHeight + textSize.y) / 2.0f,
                                                  m_GUI->m_NDCTransformerX,
@@ -61,8 +62,8 @@ void Button::Render()
                                                  m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY), 0.1, 0.1f, 0.9f);
     if (m_cooldown > 0)
     {
-        m_GUI->m_sharedContext->GUIShader->SetFloat("alpha", 1.0f);
-        m_GUI->m_sharedContext->textShader->SetFloat("alpha", 1.0f);
+        m_GUI->m_sharedContext->shaderManager->Get("GUI.txt")->SetFloat("alpha", 1.0f);
+        m_GUI->m_sharedContext->shaderManager->Get("Text.txt")->SetFloat("alpha", 1.0f);
     }
 }
 
@@ -111,10 +112,10 @@ void Slider::Render()
                          (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f,
                          0.0f); //! move to init
 
-    m_GUI->m_sharedContext->GUIShader->SetFloatMatrix("transformMatrix",
-                                                      transformMatrix.GetArray());
-    m_GUI->m_sharedContext->GUIShader->Use();
-    m_GUI->m_sharedContext->graphics->DrawMesh(2); //* Draw rectangle
+    m_GUI->m_sharedContext->shaderManager->Get("GUI.txt")->SetFloatMatrix("transformMatrix",
+                                                                          transformMatrix.GetArray());
+    // m_GUI->m_sharedContext->shaderManager->Get("GUI.txt")->Use();
+    m_GUI->m_sharedContext->graphics->DrawMesh(m_GUI->m_sharedContext->meshManager->Get("rectangle.obj")->VAO, m_GUI->m_sharedContext->meshManager->Get("rectangle.obj")->elementsCount); //* Draw rectangle
 
     MatrixFloat sliderTransformMatrix;
     sliderTransformMatrix.ScaleX(m_GUI->m_elementHeight / 8.0f);
@@ -123,14 +124,16 @@ void Slider::Render()
     GLfloat currentNDC = ConvertCurrent();
 
     sliderTransformMatrix.Move(currentNDC, (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f, 0.0f);
-    m_GUI->m_sharedContext->GUIShader->SetFloatMatrix("transformMatrix", sliderTransformMatrix.GetArray());
-    m_GUI->m_sharedContext->GUIShader->Use();
-    m_GUI->m_sharedContext->graphics->DrawMesh(2); //* Draw rectangle
+    m_GUI->m_sharedContext->shaderManager->Get("GUI.txt")->SetFloatMatrix("transformMatrix", sliderTransformMatrix.GetArray());
+    // m_GUI->m_sharedContext->shaderManager->Get("GUI.txt")->Use();
+    m_GUI->m_sharedContext->graphics->DrawMesh(m_GUI->m_sharedContext->meshManager->Get("rectangle.obj")->VAO, m_GUI->m_sharedContext->meshManager->Get("rectangle.obj")->elementsCount); //* Draw rectangle
 
     sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_name + ": " + std::to_string(*m_currentValue),
                                                                                 m_GUI->m_NDCTransformerX,
                                                                                 m_GUI->m_NDCTransformerY,
                                                                                 m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY));
+    // m_GUI->m_sharedContext->shaderManager->Get("Text.txt")->Use();
+    m_GUI->m_sharedContext->shaderManager->Get("Text.txt")->SetFloatVec3("textColor", 0.1f, 0.1f, 0.9f);
     m_GUI->m_sharedContext->graphics->RenderText(m_name + ": " + std::to_string(*m_currentValue), (m_GUI->m_leftBorder + m_GUI->m_rightBorder - textSize.x) / 2.0f,
                                                  m_topBorder - m_GUI->m_elementGap / 2.0f,
                                                  m_GUI->m_NDCTransformerX,
@@ -205,6 +208,8 @@ void HUD::Render()
                                                                                 m_GUI->m_NDCTransformerX,
                                                                                 m_GUI->m_NDCTransformerY,
                                                                                 m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY));
+    // m_GUI->m_sharedContext->shaderManager->Get("Text.txt")->Use();
+    m_GUI->m_sharedContext->shaderManager->Get("Text.txt")->SetFloatVec3("textColor", 0.1f, 0.1f, 0.9f);
     m_GUI->m_sharedContext->graphics->RenderText(m_text, (m_GUI->m_leftBorder + m_GUI->m_elementGap / 2.0f),
                                                  m_topBorder - (m_GUI->m_elementHeight + textSize.y) / 2.0f,
                                                  m_GUI->m_NDCTransformerX,
@@ -288,8 +293,8 @@ void GUI::Update(GLint l_elapsed)
 
 void GUI::Render()
 {
-    m_sharedContext->GUIShader->SetFloat("alpha", 1.0f);
-    m_sharedContext->textShader->SetFloat("alpha", 1.0f);
+    m_sharedContext->shaderManager->Get("GUI.txt")->SetFloat("alpha", 1.0f);
+    m_sharedContext->shaderManager->Get("Text.txt")->SetFloat("alpha", 1.0f);
     glDisable(GL_DEPTH_TEST); //* GUI always draws on top of everything
 
     m_NDCTransformerX = 2.0f / m_sharedContext->window->GetWindowSize().x;

@@ -1,15 +1,17 @@
 #include "Camera.h"
 
+Camera::Camera()
+{
+}
+
 Camera::Camera(GLuint l_ID,
                GLfloat l_FOV,
                GLfloat l_movementSpeed,
                GLfloat l_turnSpeed,
-               sf::Vector3f l_rotation,
-               sf::Vector3f l_position,
-               sf::Vector3f l_scale) : Object(l_ID, l_position, l_rotation, l_scale),
-                                       m_FOV{ l_FOV },
-                                       m_movementSpeed{ l_movementSpeed },
-                                       m_turnSpeed{ l_turnSpeed }
+               Transform l_transform) : Object(l_ID, l_transform),
+                                        m_FOV{ l_FOV },
+                                        m_movementSpeed{ l_movementSpeed },
+                                        m_turnSpeed{ l_turnSpeed }
 {
 }
 
@@ -17,10 +19,10 @@ Camera::~Camera() {}
 
 MatrixFloat Camera::GetViewMatrix()
 {
-    m_viewMatrix = m_rotation.GetMatrix();
+    m_viewMatrix = m_transform.rotation.GetMatrix();
 
     MatrixFloat matrixTranslation;
-    matrixTranslation.Move(-m_position.x, -m_position.y, -m_position.z);
+    matrixTranslation.Move(-m_transform.position.x, -m_transform.position.y, -m_transform.position.z);
 
     m_viewMatrix = m_viewMatrix * matrixTranslation;
 
@@ -29,9 +31,9 @@ MatrixFloat Camera::GetViewMatrix()
 
 sf::Vector3f Camera::GetTargetPoint(GLfloat cameraDistance)
 {
-    return sf::Vector3f(-m_viewMatrix[2] * cameraDistance + m_position.x,
-                        -m_viewMatrix[6] * cameraDistance + m_position.y,
-                        -m_viewMatrix[10] * cameraDistance + m_position.z);
+    return sf::Vector3f(-m_viewMatrix[2] * cameraDistance + m_transform.position.x,
+                        -m_viewMatrix[6] * cameraDistance + m_transform.position.y,
+                        -m_viewMatrix[10] * cameraDistance + m_transform.position.z);
 }
 
 GLfloat Camera::GetFOV() const
@@ -102,24 +104,24 @@ void Camera::HandleInput(GLint l_xDelta, GLint l_yDelta)
         Quaternion qPitchDelta(sf::Vector3f(1, 0, 0), m_rotationDelta.x);
         Quaternion qYawDelta(sf::Vector3f(0, 1, 0), m_rotationDelta.y);
 
-        m_rotation = qPitchDelta * m_rotation * qYawDelta;
-        m_rotation.Normalize();
+        m_transform.rotation = qPitchDelta * m_transform.rotation * qYawDelta;
+        m_transform.rotation.Normalize();
     }
     else
     {
         //* Free Mode
         Quaternion qDelta(m_rotationDelta);
-        m_rotation = qDelta * m_rotation;
-        m_rotation.Normalize();
+        m_transform.rotation = qDelta * m_transform.rotation;
+        m_transform.rotation.Normalize();
     }
 
     sf::Vector3f cameraLeft(-m_viewMatrix[0], -m_viewMatrix[4], -m_viewMatrix[8]);
     sf::Vector3f cameraUp(m_viewMatrix[1], m_viewMatrix[5], m_viewMatrix[9]);
     sf::Vector3f cameraForward(-m_viewMatrix[2], -m_viewMatrix[6], -m_viewMatrix[10]);
 
-    m_position += cameraLeft * (m_movementSpeed * m_move.x);
-    m_position += cameraUp * (m_movementSpeed * m_move.y);
-    m_position += cameraForward * (m_movementSpeed * m_move.z);
+    m_transform.position += cameraLeft * (m_movementSpeed * m_move.x);
+    m_transform.position += cameraUp * (m_movementSpeed * m_move.y);
+    m_transform.position += cameraForward * (m_movementSpeed * m_move.z);
 }
 
 void Camera::ChangeMovementSpeed(GLfloat delta)
@@ -129,4 +131,28 @@ void Camera::ChangeMovementSpeed(GLfloat delta)
 
 void Camera::Update(GLint l_elapsed)
 {
+}
+
+std::ostream& operator<<(std::ostream& os, const Camera& camera)
+
+{
+    os << static_cast<const Object&>(camera) << " " << camera.m_FOV << " " << camera.m_movementSpeed << " " << camera.m_turnSpeed << " " << camera.m_pitchFactor << " " << camera.m_yawFactor;
+    return os;
+}
+
+std::istream& operator>>(std::istream& is, Camera& camera)
+{
+    GLuint ID;
+    Transform transform;
+    std::string meshName, materialName, shaderName;
+    LightComponent light;
+
+    is >> ID >> transform >> meshName >> materialName >> shaderName >> light;
+
+    is >> camera.m_FOV >> camera.m_movementSpeed >> camera.m_turnSpeed >> camera.m_pitchFactor >> camera.m_yawFactor;
+
+    camera.m_ID        = ID;
+    camera.m_transform = transform;
+
+    return is;
 }

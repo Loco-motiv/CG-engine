@@ -7,23 +7,11 @@
 #include FT_FREETYPE_H
 
 #include "stb_image.h"
+#include "tiny_obj_loader.h"
 
 #include <SFML/Window.hpp>
 #include <map>
-
-struct Texture
-{
-    GLuint diffuse;
-    GLuint specular;
-    std::string name;
-};
-
-struct Mesh
-{
-    GLuint ID;
-    GLuint verticesCount;
-    std::string name;
-};
+#include <unordered_map>
 
 struct Character
 {
@@ -41,15 +29,12 @@ public:
     Graphics();
     ~Graphics();
 
-    Shader m_shader;
-    Shader m_textShader;
-    Shader m_GUIShader;
-    Shader m_pickingShader;
+    GLuint MakeTexture(char const* path);
+    void FreeTexture(GLuint l_id);
 
-    std::vector<Texture> m_textures;
-    std::vector<Mesh> m_meshes;
-
-    void DrawMesh(GLuint l_meshID);
+    std::tuple<GLuint, GLuint, GLuint, GLuint> MakeMesh(const std::string path);
+    void FreeMesh(GLuint l_VAO, GLuint l_VBO, GLuint l_IBO);
+    void DrawMesh(GLuint l_meshID, GLuint elementsCount);
     void RenderText(const std::string& text, GLfloat x, GLfloat y,
                     GLfloat sx, GLfloat sy, GLfloat scale,
                     GLfloat colorR, GLfloat colorG, GLfloat colorB);
@@ -65,17 +50,8 @@ public:
     GLuint m_pickingHeight = 1080;
 
 private:
-    void MakeShaders();
-    void MakeVAOs();
-    void MakeTextures();
     void MakePBOs();
     void MakeFBOs();
-
-    GLuint MakeTexture(char const* path);
-
-    Mesh MakeCubeVAO();
-    Mesh MakeSphereVAO();
-    Mesh MakeRectangleVAO();
 
     void MakePickingFBO(GLuint l_width, GLuint l_height);
     void MakePickingPBO();

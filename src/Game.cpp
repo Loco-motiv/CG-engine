@@ -1,47 +1,22 @@
 #include "Game.h"
 
-Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedContext, 0.6f, 1.0f, 0.1f, 0.045f),
-               m_sceneManager(&m_sharedContext)
+Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_graphics(),
+               m_textureManager(&m_sharedContext, "resources/textures/"), m_materialManager(&m_sharedContext, "resources/materials/"),
+               m_meshManager(&m_sharedContext, "resources/meshes/"), m_shaderManager(&m_sharedContext, "resources/shaderPrograms/"),
+               m_renderer(&m_sharedContext), m_GUI(&m_sharedContext, 0.6f, 1.0f, 0.1f, 0.045f), m_sceneManager(&m_sharedContext)
 {
-    m_sharedContext.graphics      = &m_graphics;
-    m_sharedContext.window        = &m_window;
-    m_sharedContext.GUI           = &m_GUI;
-    m_sharedContext.shader        = &m_graphics.m_shader;
-    m_sharedContext.textShader    = &m_graphics.m_textShader;
-    m_sharedContext.GUIShader     = &m_graphics.m_GUIShader;
-    m_sharedContext.pickingShader = &m_graphics.m_pickingShader;
-    m_camera                      = m_sceneManager.GetCamera();
+    m_sharedContext.graphics        = &m_graphics;
+    m_sharedContext.renderer        = &m_renderer;
+    m_sharedContext.window          = &m_window;
+    m_sharedContext.GUI             = &m_GUI;
+    m_sharedContext.textureManager  = &m_textureManager;
+    m_sharedContext.materialManager = &m_materialManager;
+    m_sharedContext.meshManager     = &m_meshManager;
+    m_sharedContext.shaderManager   = &m_shaderManager;
 
-    Material diamond{
-        m_graphics.m_textures[0].diffuse, m_graphics.m_textures[0].specular, 64, 1.0f, { 1.0f, 1.0f, 1.0f },
-            true, true
-    };
-
-    Material debugMat{
-        0, 0, 64, 1.0f, { 1.0f, 0.0f, 0.0f },
-            false, false
-    };
-
-    LightComponent pointLight = LightComponent::Point(
-        { 0.01f, 0.01f, 0.01f },
-        { 0.5f, 0.5f, 0.5f },
-        { 1.0f, 1.0f, 1.0f });
-
-    LightComponent dirLight = LightComponent::Directional(
-        { 0.2f, 0.2f, 0.2f },
-        { 0.8, 0.8f, 0.8f },
-        { 0.8f, 0.8f, 0.8f },
-        { 0.0f, -1.0f, 0.0f });
-
-    m_cube = m_sceneManager.MakeCube({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.8f, 0.8f, 0.8f }, debugMat);
-    m_sceneManager.MakeCube({ 2.0f, 2.0f, 2.0f }, { 0.0f, 0.0f, 0.0f }, { 1.8f, 0.8f, 0.8f }, diamond);
-    m_lightCube = m_sceneManager.MakeLightCube({ 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, { 0.8f, 0.2f, 0.2f }, pointLight);
-    // m_sceneManager.MakeLightSphere({ 1.0, 2.0, 2.0f }, { 0.0, 20.0, 20.0 }, { 0.1, 0.1, 0.1 }, pointLight);
-    m_sceneManager.MakeSphere({ 2.0f, 1.0f, 3.0f }, { 0.0f, 0.0f, 0.0f }, { 0.1f, 0.5f, 0.5f }, diamond);
-    m_sceneManager.MakeSphere({ 0.0f, 2.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.8f, 0.5f, 0.2f }, diamond);
-    m_sceneManager.MakeCube({ 0.0f, -2.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 100.0f, 0.1f, 100.0f }, diamond);
-    m_sceneManager.MakeDirectionalLight({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, dirLight);
-    // m_sceneManager.MakeLightSphere({ 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f }, 0.2f, { 1.0f, 1.0f, 1.0f });
+    m_sceneManager.LoadScene("scenes/Scene_30-03-2026_19-00-54.327957800.txt");
+    m_camera = m_sceneManager.GetCamera();
+    m_cube   = m_sceneManager.GetObject(1);
 
     m_GUI.MakeSlider("Rotate angle", &m_rotateAngle, -1.0, 1.0);
     m_GUI.MakeButton("Projection switch", std::bind([this]()
@@ -75,7 +50,7 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_GUI(&m_sharedCon
                 { 0.2f, 0.2f, 0.2f },
                 { 0.8f, 0.8f, 0.8f },
                 { 1.0f, 1.0f, 1.0f });
-            m_sceneManager.MakeLightCube(m_targetPoint, { 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }, pointLight); }));
+            m_sceneManager.MakeLightCube({m_targetPoint, { 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }}, pointLight); }));
 
     m_GUI.MakeButton("Toggle YawGlobal", std::bind([this]()
                                                    { m_camera->ToggleYawGlobal(); }));
@@ -117,7 +92,7 @@ void Game::Render()
 
     m_sceneManager.Render();
 
-    m_GUI.Render();
+    // m_GUI.Render(); //TODO make it work
 
     m_window.EndDraw();
 }
@@ -129,6 +104,11 @@ Window* Game::GetWindow()
 
 void Game::HandleInput()
 {
+    // save scene on i
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::I))
+    {
+        m_sceneManager.SaveScene("scenes/");
+    }
     m_sceneManager.HandleInput();
 
     m_GUI.HandleInput();

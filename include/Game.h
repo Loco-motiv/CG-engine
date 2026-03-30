@@ -3,7 +3,9 @@
 #include "Camera.h"
 #include "GUI.h"
 #include "Matrix.h"
+#include "Renderer.h"
 #include "SceneManager.h"
+#include "Window.h"
 
 class Game
 {
@@ -22,6 +24,11 @@ private:
 
     Window m_window;
     Graphics m_graphics;
+    TextureManager m_textureManager;
+    MaterialManager m_materialManager;
+    MeshManager m_meshManager;
+    ShaderManager m_shaderManager;
+    Renderer m_renderer;
     GUI m_GUI;
     Camera* m_camera;
     SceneManager m_sceneManager;

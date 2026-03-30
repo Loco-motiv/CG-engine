@@ -1,82 +1,152 @@
 #include "SceneManager.h"
 
-SceneManager::SceneManager(SharedContext* l_sharedContext) : m_sharedContext{ l_sharedContext },
-                                                             m_camera(-1, 30.0f, 0.05f, 0.3f,
-                                                                      { 0.0f, 0.0f, 0.0f },
-                                                                      { 0.0f, 0.0f, 3.0f }, { 1.0f, 1.0f, 1.0f }) {}
+SceneManager::SceneManager(SharedContext* l_sharedContext)
+    : m_sharedContext{ l_sharedContext },
+      m_camera(-1, 30.0f, 0.05f, 0.3f, { 0.0f, 0.0f, 5.0f }) {}
 
 SceneManager::~SceneManager()
 {
 }
 
-Object* SceneManager::MakeCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale,
-                               Material l_material)
+void SceneManager::LoadScene(const fs::path& l_scenePath)
 {
-    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    std::ifstream file(l_scenePath);
+    if (file.is_open())
+    {
+        file >> m_camera;
+        file >> m_nearDistance >> m_rearDistance >> m_pickedObject;
+        GLuint ID;
+        Transform transform;
+        std::string meshName, materialName, shaderName;
+        LightComponent light;
+        while (file >> ID >> transform >> meshName >> materialName >> shaderName >> light)
+        {
+            std::cout << ID << " " << transform << " " << meshName << " " << materialName << ' ' << shaderName << ' ' << light << '\n';
+
+            MakeObject(ID, transform, meshName, materialName, light, shaderName);
+        }
+    }
+}
+
+void SceneManager::SaveScene(const fs::path& l_scenePath, std::string_view l_name)
+{
+    const auto timeNow    = std::chrono::system_clock::now();
+    const auto localTime  = std::chrono::current_zone()->to_local(timeNow);
+    std::string timestamp = std::format("{:%d-%m-%Y_%H-%M-%S}", localTime);
+    std::string name      = std::string(l_name) + "_" + timestamp + ".txt";
+    std::ofstream file(l_scenePath / name);
+
+    if (file.is_open())
+    {
+        file << m_camera << '\n';
+        file << m_nearDistance << ' ' << m_rearDistance << ' ' << m_pickedObject << '\n';
+        for (const auto& object : m_objects)
+        {
+            file << *object << '\n';
+        }
+    }
+}
+
+Object* SceneManager::MakeCube(Transform l_transform, std::string l_materialName)
+{
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
     Object* cube = m_objects.back().get();
-    cube->SetMaterial(l_material);
-    cube->SetMesh({ 0, true });
+    cube->SetMaterial(m_sharedContext->materialManager->Get(l_materialName));
+    cube->SetMesh(m_sharedContext->meshManager->Get("cube.obj"));
+    cube->SetShader(m_sharedContext->shaderManager->Get("Main.txt"));
     return cube;
 }
 
-Object* SceneManager::MakeSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, Material l_material)
+Object* SceneManager::MakeSphere(Transform l_transform, std::string l_materialName)
 {
-    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
     Object* sphere = m_objects.back().get();
-    sphere->SetMaterial(l_material);
-    sphere->SetMesh({ 1, true });
+    sphere->SetMaterial(m_sharedContext->materialManager->Get(l_materialName));
+    sphere->SetMesh(m_sharedContext->meshManager->Get("sphere.obj"));
+    sphere->SetShader(m_sharedContext->shaderManager->Get("Main.txt"));
     return sphere;
 }
 
-Object* SceneManager::MakePointLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
+Object* SceneManager::MakePointLight(Transform l_transform, LightComponent l_light)
 {
-    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
     Object* pointLight = m_objects.back().get();
     pointLight->SetLight(l_light);
+    pointLight->SetShader(m_sharedContext->shaderManager->Get("Main.txt"));
     return pointLight;
 }
 
-Object* SceneManager::MakeLightCube(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
+Object* SceneManager::MakeLightCube(Transform l_transform, LightComponent l_light)
 {
-    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
     Object* lightCube = m_objects.back().get();
     lightCube->SetLight(l_light);
-    lightCube->SetMesh({ 0, true });
+    lightCube->SetMesh(m_sharedContext->meshManager->Get("cube.obj"));
+    lightCube->SetShader(m_sharedContext->shaderManager->Get("Main.txt"));
+    lightCube->SetMaterial(m_sharedContext->materialManager->Get("LightSource.txt"));
     return lightCube;
 }
 
-Object* SceneManager::MakeLightSphere(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
+Object* SceneManager::MakeLightSphere(Transform l_transform, LightComponent l_light)
 {
-    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
     Object* lightSphere = m_objects.back().get();
     lightSphere->SetLight(l_light);
-    lightSphere->SetMesh({ 1, true });
+    lightSphere->SetMesh(m_sharedContext->meshManager->Get("sphere.obj"));
+    lightSphere->SetShader(m_sharedContext->shaderManager->Get("Main.txt"));
+    lightSphere->SetMaterial(m_sharedContext->materialManager->Get("LightSource.txt"));
     return lightSphere;
 }
 
-Object* SceneManager::MakeDirectionalLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
+Object* SceneManager::MakeDirectionalLight(Transform l_transform, LightComponent l_light)
 {
-    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
     Object* dirLight = m_objects.back().get();
     dirLight->SetLight(l_light);
+    dirLight->SetShader(m_sharedContext->shaderManager->Get("Main.txt"));
     return dirLight;
 }
 
-Object* SceneManager::MakeSpotLight(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, LightComponent l_light)
+Object* SceneManager::MakeSpotLight(Transform l_transform, LightComponent l_light)
 {
-    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
     Object* spotLight = m_objects.back().get();
     spotLight->SetLight(l_light);
+    spotLight->SetShader(m_sharedContext->shaderManager->Get("Main.txt"));
     return spotLight;
 }
 
-Object* SceneManager::MakeObject(sf::Vector3f l_position, sf::Vector3f l_rotation, sf::Vector3f l_scale, Material l_material, MeshInfo l_mesh, LightComponent l_light)
+Object* SceneManager::MakeObject(Transform l_transform, std::string l_meshName, std::string l_materialName, LightComponent l_light)
 {
-    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_position, l_rotation, l_scale));
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
     Object* object = m_objects.back().get();
-    object->SetMaterial(l_material);
-    object->SetMesh(l_mesh);
+    object->SetMaterial(m_sharedContext->materialManager->Get(l_materialName));
+    object->SetMesh(m_sharedContext->meshManager->Get(l_meshName));
     object->SetLight(l_light);
+    object->SetShader(m_sharedContext->shaderManager->Get("Main.txt"));
+    return object;
+}
+
+Object* SceneManager::MakeObject(Transform l_transform, std::string l_meshName, std::string l_materialName, LightComponent l_light, std::string l_shaderName)
+{
+    m_objects.push_back(std::make_unique<Object>(++m_objectCount, l_transform));
+    Object* object = m_objects.back().get();
+    object->SetMaterial(m_sharedContext->materialManager->Get(l_materialName));
+    object->SetMesh(m_sharedContext->meshManager->Get(l_meshName));
+    object->SetLight(l_light);
+    object->SetShader(m_sharedContext->shaderManager->Get(l_shaderName));
+    return object;
+}
+
+Object* SceneManager::MakeObject(GLuint l_ID, Transform l_transform, std::string l_meshName, std::string l_materialName, LightComponent l_light, std::string l_shaderName)
+{
+    m_objects.push_back(std::make_unique<Object>(l_ID, l_transform));
+    m_objectCount++;
+    Object* object = m_objects.back().get();
+    object->SetMaterial(m_sharedContext->materialManager->Get(l_materialName));
+    object->SetMesh(m_sharedContext->meshManager->Get(l_meshName));
+    object->SetLight(l_light);
+    object->SetShader(m_sharedContext->shaderManager->Get(l_shaderName));
     return object;
 }
 
@@ -193,8 +263,6 @@ void SceneManager::Render()
 
     MatrixFloat projectionViewMatrix = m_projectionMatrix * m_viewMatrix;
 
-    m_sharedContext->shader->Use();
-
     for (auto& elem : m_objects)
     {
         elem->UpdateTransformMatrix(projectionViewMatrix);
@@ -203,7 +271,7 @@ void SceneManager::Render()
 
         if (elemType != LightType::None and elem->GetLight().hasChanges)
         {
-            UpdateLightData(elem, m_sharedContext->shader, m_pointLightCount, m_spotLightCount);
+            m_sharedContext->renderer->UpdateLightData(elem.get(), m_pointLightCount, m_spotLightCount);
         }
         if (elemType == LightType::Point)
         {
@@ -215,125 +283,17 @@ void SceneManager::Render()
         }
     }
 
-    m_sharedContext->shader->SetInt("pointLightCount", m_pointLightCount);
-    m_sharedContext->shader->SetInt("spotLightCount", m_spotLightCount); // TODO maybe i should do these computations in update...
+    // TODO maybe i should do these computations in update...
 
     if (m_flagPicked == true)
     {
-        RenderPicking();
+        m_sharedContext->renderer->RenderObjectsPicking(m_objects);
 
-        m_sharedContext->graphics->ReadPixel(m_pickingCords.x, m_pickingCords.y);
+        m_sharedContext->renderer->ReadPickingPixel(m_pickingCords.x, m_pickingCords.y);
 
         m_flagPicked      = false;
         m_flagPickedReady = true;
     }
 
-    auto shader = m_sharedContext->shader;
-
-    shader->Use();
-    shader->SetFloatVec3("viewPosition", m_cameraPosition.x, m_cameraPosition.y, m_cameraPosition.z);
-
-    for (const auto& elem : m_objects)
-    {
-        if (elem->GetMesh().isActive == false)
-        {
-            continue;
-        }
-
-        Material material = elem->GetMaterial();
-
-        shader->SetFloatMatrix("modelMatrix", elem->GetModelMatrix().GetArray());
-        shader->SetFloatMatrix("transformMatrix", elem->GetTransformMatrix().GetArray());
-
-        shader->SetFloatVec3("material.colour", material.colour.x, material.colour.y, material.colour.z);
-        shader->SetFloat("material.shininess", material.shininess);
-        shader->SetFloat("material.alpha", material.alpha);
-
-        if (material.hasDiffuseTexture)
-        {
-            shader->SetDiffTexture(material.diffuseTexture);
-        }
-        if (material.hasSpecularTexture)
-        {
-            shader->SetSpecTexture(material.specularTexture);
-        }
-        shader->SetBool("material.hasDiffuseTexture", material.hasDiffuseTexture);
-        shader->SetBool("material.hasSpecularTexture", material.hasSpecularTexture);
-
-        if (elem->GetLight().type != LightType::None)
-        {
-            shader->SetFloatVec3("material.colour", elem->GetLight().specular.x, elem->GetLight().specular.y, elem->GetLight().specular.z);
-            shader->SetBool("material.isLightSource", true);
-        }
-        else
-        {
-            shader->SetBool("material.isLightSource", false);
-        }
-
-        m_sharedContext->graphics->DrawMesh(elem->GetMesh().ID);
-    }
-}
-
-void SceneManager::RenderPicking()
-{
-    m_sharedContext->graphics->BeginPickingDraw();
-
-    m_sharedContext->pickingShader->Use();
-
-    for (const auto& elem : m_objects)
-    {
-        if (elem->GetMesh().isActive) // TODO make picking meshless objects possible
-        {
-            m_sharedContext->pickingShader->SetFloatMatrix("transformMatrix", elem->GetTransformMatrix().GetArray());
-            m_sharedContext->pickingShader->SetUInt("objectID", elem->GetID());
-
-            m_sharedContext->graphics->DrawMesh(elem->GetMesh().ID);
-        }
-    }
-
-    m_sharedContext->graphics->EndPickingDraw(m_sharedContext->window->GetWindowSize().x, m_sharedContext->window->GetWindowSize().y);
-}
-
-void SceneManager::UpdateLightData(std::unique_ptr<Object>& l_object, Shader* shader, int pointLightCount, int spotLightCount)
-{
-    LightComponent m_light  = l_object->GetLight();
-    sf::Vector3f m_position = l_object->GetPosition();
-    if (m_light.type == LightType::None)
-    {
-        return;
-    }
-
-    if (m_light.type == LightType::Directional)
-    {
-        shader->SetFloatVec3("dirLight.direction", m_light.direction.x, m_light.direction.y, m_light.direction.z);
-        shader->SetFloatVec3("dirLight.ambient", m_light.ambient.x, m_light.ambient.y, m_light.ambient.z);
-        shader->SetFloatVec3("dirLight.diffuse", m_light.diffusive.x, m_light.diffusive.y, m_light.diffusive.z);
-        shader->SetFloatVec3("dirLight.specular", m_light.specular.x, m_light.specular.y, m_light.specular.z);
-    }
-    else if (m_light.type == LightType::Point)
-    {
-        std::string prefix = "pointLights[" + std::to_string(pointLightCount) + "].";
-        shader->SetFloatVec3(prefix + "position", m_position.x, m_position.y, m_position.z);
-        shader->SetFloat(prefix + "constant", m_light.constant);
-        shader->SetFloat(prefix + "linear", m_light.linear);
-        shader->SetFloat(prefix + "quadratic", m_light.quadratic);
-        shader->SetFloatVec3(prefix + "ambient", m_light.ambient.x, m_light.ambient.y, m_light.ambient.z);
-        shader->SetFloatVec3(prefix + "diffuse", m_light.diffusive.x, m_light.diffusive.y, m_light.diffusive.z);
-        shader->SetFloatVec3(prefix + "specular", m_light.specular.x, m_light.specular.y, m_light.specular.z);
-    }
-    else if (m_light.type == LightType::Spot)
-    {
-        std::string prefix = "spotLight[" + std::to_string(spotLightCount) + "].";
-        shader->SetFloatVec3(prefix + "position", m_position.x, m_position.y, m_position.z);
-        shader->SetFloatVec3(prefix + "direction", m_light.direction.x, m_light.direction.y, m_light.direction.z);
-        shader->SetFloat(prefix + "cutOff", m_light.cutOff);
-        shader->SetFloat(prefix + "outerCutOff", m_light.outerCutOff);
-        shader->SetFloat(prefix + "constant", m_light.constant);
-        shader->SetFloat(prefix + "linear", m_light.linear);
-        shader->SetFloat(prefix + "quadratic", m_light.quadratic);
-        shader->SetFloatVec3(prefix + "ambient", m_light.ambient.x, m_light.ambient.y, m_light.ambient.z);
-        shader->SetFloatVec3(prefix + "diffuse", m_light.diffusive.x, m_light.diffusive.y, m_light.diffusive.z);
-        shader->SetFloatVec3(prefix + "specular", m_light.specular.x, m_light.specular.y, m_light.specular.z);
-    }
-    l_object->SetHasChangesFlag(false);
+    m_sharedContext->renderer->RenderObjects(m_objects, m_cameraPosition);
 }
