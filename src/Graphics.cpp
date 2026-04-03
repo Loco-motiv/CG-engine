@@ -265,6 +265,46 @@ void Graphics::FreeTexture(const GLuint l_id)
     glDeleteTextures(1, &l_id);
 }
 
+std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeQuadMesh()
+{
+    GLfloat vertices[4][4] = {
+        {  0.5f,  0.5f, 1.0f, 0.0f },
+        {  0.5f, -0.5f, 1.0f, 1.0f },
+        { -0.5f, -0.5f, 0.0f, 1.0f },
+        { -0.5f,  0.5f, 0.0f, 0.0f }
+    };
+
+    GLuint indices[2][3] = {
+        { 0, 3, 1 },
+        { 3, 2, 1 }
+    };
+
+    GLuint pointsVBO;
+    glCreateBuffers(1, &pointsVBO);
+    glNamedBufferData(pointsVBO, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    GLuint pointsIBO;
+    glCreateBuffers(1, &pointsIBO);
+    glNamedBufferData(pointsIBO, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    GLuint m_rectangleVAO;
+    glCreateVertexArrays(1, &m_rectangleVAO);
+
+    glVertexArrayVertexBuffer(m_rectangleVAO, 0, pointsVBO, 0, 4 * sizeof(GLfloat));
+    glVertexArrayElementBuffer(m_rectangleVAO, pointsIBO);
+
+    glVertexArrayAttribFormat(m_rectangleVAO, 0, 2, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribFormat(m_rectangleVAO, 1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat));
+
+    glVertexArrayAttribBinding(m_rectangleVAO, 0, 0);
+    glVertexArrayAttribBinding(m_rectangleVAO, 1, 0);
+
+    glEnableVertexArrayAttrib(m_rectangleVAO, 0);
+    glEnableVertexArrayAttrib(m_rectangleVAO, 1);
+
+    return { m_rectangleVAO, pointsVBO, pointsIBO, 6 };
+}
+
 std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeMesh(const std::string path) // TODO i definitely made this way too complicated
 {
     struct Vertex
@@ -479,48 +519,18 @@ void Graphics::DrawMesh(GLuint l_meshID, GLuint elementsCount)
     glDrawElements(GL_TRIANGLES, elementsCount, GL_UNSIGNED_INT, 0);
 }
 
-void Graphics::RenderText(const std::string& text, GLfloat x, GLfloat y,
-                          GLfloat sx, GLfloat sy, GLfloat scale,
-                          GLfloat colorR, GLfloat colorG, GLfloat colorB)
+Character Graphics::GetCharacter(char c) const
 {
-    glActiveTexture(GL_TEXTURE0);
-    glBindVertexArray(m_textVAO);
-
-    // iterate through all characters
-    std::string::const_iterator c;
-    for (c = text.begin(); c != text.end(); c++)
+    auto it = Characters.find(c);
+    if (it != Characters.end())
     {
-        Character ch = Characters[*c];
-
-        GLfloat xpos = x + ch.bearingLeft * scale * sx;
-        GLfloat ypos = y - (static_cast<int>(ch.sizeY) - ch.bearingTop) * scale * sy;
-
-        GLfloat w = ch.sizeX * scale * sx;
-        GLfloat h = ch.sizeY * scale * sy;
-        // update VBO for each character
-        GLfloat vertices[6][4] = {
-            {     xpos, ypos + h, 0.0f, 0.0f },
-            {     xpos,     ypos, 0.0f, 1.0f },
-            { xpos + w,     ypos, 1.0f, 1.0f },
-
-            {     xpos, ypos + h, 0.0f, 0.0f },
-            { xpos + w,     ypos, 1.0f, 1.0f },
-            { xpos + w, ypos + h, 1.0f, 0.0f }
-        };
-
-        // render glyph texture over quad
-        glBindTexture(GL_TEXTURE_2D, ch.textureID);
-        // update content of VBO memory
-        glBindBuffer(GL_ARRAY_BUFFER, m_textVBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        // render quad
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-        x += (ch.advance >> 6) * scale * sx; // bitshift by 6 to get value in pixels (2^6 = 64)
+        return it->second;
     }
-    glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    else
+    {
+        std::cout << "ERROR::FREETYPE: Character '" << c << "' not found" << std::endl;
+        return Character{};
+    }
 }
 
 sf::Vector2f Graphics::GetTextDimensions(const std::string& text, GLfloat sx, GLfloat sy, GLfloat scale)

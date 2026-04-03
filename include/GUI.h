@@ -3,6 +3,7 @@
 #include "Graphics.h"    //TODO remove
 #include "Matrix.h"
 #include "MeshManager.h" //TODO remove
+#include "Renderer.h"
 #include "ShaderManager.h"
 #include "SharedContext.h"
 #include "Window.h" //TODO remove

@@ -127,6 +127,11 @@ void Shader::SetFloatVec3(const std::string& name, const GLfloat valueX, const G
     glProgramUniform3f(ID, GetUniformLocation(name), valueX, valueY, valueZ);
 }
 
+void Shader::SetFloatVec4(const std::string& name, const GLfloat valueX, const GLfloat valueY, const GLfloat valueZ, const GLfloat valueW) const
+{
+    glProgramUniform4f(ID, GetUniformLocation(name), valueX, valueY, valueZ, valueW);
+}
+
 void Shader::SetFloatMatrix(const std::string& name, const GLfloat* matrix) const
 {
     glProgramUniformMatrix4fv(ID, GetUniformLocation(name), 1, GL_FALSE, matrix);

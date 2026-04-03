@@ -1,13 +1,13 @@
 #version 460 core
 
-layout(location = 0) in vec3 vertex_position;
-layout(location = 1) in vec3 vertex_colour;
+layout(location = 0) in vec2 vertex_position;
+layout(location = 1) in vec2 vertex_uv;
 
-out vec3 colour;
+out vec2 TexCoords;
 
 uniform mat4 transformMatrix;
 
 void main() {
-    colour = vertex_colour;
-    gl_Position = transformMatrix * vec4(vertex_position, 1.0);
+    TexCoords = vertex_uv;
+    gl_Position = transformMatrix * vec4(vertex_position, 0.0, 1.0);
 }

@@ -92,7 +92,7 @@ void Game::Render()
 
     m_sceneManager.Render();
 
-    // m_GUI.Render(); //TODO make it work
+    m_GUI.Render();
 
     m_window.EndDraw();
 }

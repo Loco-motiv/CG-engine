@@ -1,9 +1,15 @@
 #include "Renderer.h"
 
 Renderer::Renderer(SharedContext* l_sharedContext)
-    : m_sharedContext{ l_sharedContext } {}
+    : m_sharedContext{ l_sharedContext }
+{
+    m_rectangleMesh = m_sharedContext->graphics->MakeQuadMesh();
+}
 
-Renderer::~Renderer() {}
+Renderer::~Renderer()
+{
+    m_sharedContext->graphics->FreeMesh(std::get<0>(m_rectangleMesh), std::get<1>(m_rectangleMesh), std::get<2>(m_rectangleMesh));
+}
 
 void Renderer::RenderObjects(const std::vector<std::unique_ptr<Object>>& l_objects, sf::Vector3f l_cameraPosition)
 {
@@ -51,20 +57,70 @@ void Renderer::RenderObjects(const std::vector<std::unique_ptr<Object>>& l_objec
     }
 }
 
-void Renderer::RenderTextGUI()
+void Renderer::RenderTextGUI(const std::string& text, GLfloat x, GLfloat y,
+                             GLfloat sx, GLfloat sy, GLfloat scale,
+                             GLfloat colorR, GLfloat colorG, GLfloat colorB, GLfloat alpha)
 {
+    if (!m_GUIShader)
+    {
+        m_GUIShader = m_sharedContext->shaderManager->Get("GUI.txt");
+    }
+    m_GUIShader->Use();
+    m_GUIShader->SetInt("useTexture", 1);
+    m_GUIShader->SetFloatVec4("colour", colorR, colorG, colorB, alpha);
+
+    std::string::const_iterator c;
+    for (c = text.begin(); c != text.end(); c++)
+    {
+        Character ch = m_sharedContext->graphics->GetCharacter(*c);
+
+        GLfloat w = ch.sizeX * scale * sx;
+        GLfloat h = ch.sizeY * scale * sy;
+
+        GLfloat xpos = x + ch.bearingLeft * scale * sx;
+        GLfloat ypos = y - (static_cast<int>(ch.sizeY) - ch.bearingTop) * scale * sy;
+
+        MatrixFloat charTransform;
+        charTransform.ScaleX(w);
+        charTransform.ScaleY(h);
+        charTransform.Move(xpos + w / 2.0f, ypos + h / 2.0f, 0.0f);
+
+        m_GUIShader->SetFloatMatrix("transformMatrix", charTransform.GetArray());
+
+        m_GUIShader->SetDiffTexture(ch.textureID);
+        m_sharedContext->graphics->DrawMesh(std::get<0>(m_rectangleMesh), std::get<3>(m_rectangleMesh));
+
+        x += (ch.advance >> 6) * scale * sx;
+    }
 }
 
-void Renderer::RenderGUI()
+void Renderer::RenderGUI(GLfloat x, GLfloat y, GLfloat sx, GLfloat sy, GLfloat colorR, GLfloat colorG, GLfloat colorB, GLfloat alpha)
 {
+    if (!m_GUIShader)
+    {
+        m_GUIShader = m_sharedContext->shaderManager->Get("GUI.txt");
+    }
+    m_GUIShader->Use();
+    m_GUIShader->SetInt("useTexture", 0);
+    m_GUIShader->SetFloatVec4("colour", colorR, colorG, colorB, alpha);
+
+    MatrixFloat transform;
+    transform.ScaleX(sx);
+    transform.ScaleY(sy);
+    transform.Move(x, y, 0.0f);
+
+    m_GUIShader->SetFloatMatrix("transformMatrix", transform.GetArray());
+    m_sharedContext->graphics->DrawMesh(std::get<0>(m_rectangleMesh), std::get<3>(m_rectangleMesh));
 }
 
 void Renderer::RenderObjectsPicking(const std::vector<std::unique_ptr<Object>>& l_objects)
 {
     m_sharedContext->graphics->BeginPickingDraw();
 
-    m_pickingShader = m_sharedContext->shaderManager->Get("Picking.txt");
-
+    if (!m_pickingShader)
+    {
+        m_pickingShader = m_sharedContext->shaderManager->Get("Picking.txt");
+    }
     m_pickingShader->Use();
 
     for (const auto& elem : l_objects)

@@ -37,6 +37,7 @@ public:
     void SetFloat(const std::string& name, const GLfloat value) const;
     void SetFloatVec2(const std::string& name, const GLfloat valueX, const GLfloat valueY) const;
     void SetFloatVec3(const std::string& name, const GLfloat valueX, const GLfloat valueY, const GLfloat valueZ) const;
+    void SetFloatVec4(const std::string& name, const GLfloat valueX, const GLfloat valueY, const GLfloat valueZ, const GLfloat valueW) const;
     void SetFloatMatrix(const std::string& name, const GLfloat* matrix) const;
 
     void SetDiffTexture(const GLuint diffusive) const;

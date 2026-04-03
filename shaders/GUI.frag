@@ -1,11 +1,21 @@
 #version 460 core
 
-in vec3 colour;
+layout(binding = 1) uniform sampler2D tex;
 
-out vec4 frag_colour;
+in vec2 TexCoords;
+out vec4 fragColour;
 
-uniform float alpha;
+uniform vec4 colour;
+uniform bool useTexture;
 
 void main() {
-    frag_colour = vec4(colour, alpha);
+    if (useTexture)
+    {
+        vec4 sampled = vec4(1.0, 1.0, 1.0, texture(tex, TexCoords).r);
+        fragColour = sampled * colour;
+    } 
+    else 
+    {
+        fragColour = colour;
+    }
 }

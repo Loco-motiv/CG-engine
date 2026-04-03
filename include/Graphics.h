@@ -32,12 +32,12 @@ public:
     GLuint MakeTexture(char const* path);
     void FreeTexture(GLuint l_id);
 
+    std::tuple<GLuint, GLuint, GLuint, GLuint> MakeQuadMesh();
     std::tuple<GLuint, GLuint, GLuint, GLuint> MakeMesh(const std::string path);
     void FreeMesh(GLuint l_VAO, GLuint l_VBO, GLuint l_IBO);
     void DrawMesh(GLuint l_meshID, GLuint elementsCount);
-    void RenderText(const std::string& text, GLfloat x, GLfloat y,
-                    GLfloat sx, GLfloat sy, GLfloat scale,
-                    GLfloat colorR, GLfloat colorG, GLfloat colorB);
+
+    Character GetCharacter(char c) const;
     sf::Vector2f GetTextDimensions(const std::string& text, GLfloat sx, GLfloat sy, GLfloat scale);
     GLfloat GetMaxTextHeight(GLfloat sy) const;
 
