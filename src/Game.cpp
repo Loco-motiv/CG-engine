@@ -3,7 +3,7 @@
 Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_graphics(),
                m_textureManager(&m_sharedContext, "resources/textures/"), m_materialManager(&m_sharedContext, "resources/materials/"),
                m_meshManager(&m_sharedContext, "resources/meshes/"), m_shaderManager(&m_sharedContext, "resources/shaderPrograms/"),
-               m_renderer(&m_sharedContext), m_GUI(&m_sharedContext, 0.6f, 1.0f, 0.1f, 0.045f), m_sceneManager(&m_sharedContext)
+               m_renderer(&m_sharedContext), m_GUI(&m_sharedContext, 0.6f, 1.0f, 0.1f, 0.035f), m_sceneManager(&m_sharedContext)
 {
     m_sharedContext.graphics        = &m_graphics;
     m_sharedContext.renderer        = &m_renderer;
@@ -18,48 +18,44 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_graphics(),
     m_camera = m_sceneManager.GetCamera();
     m_cube   = m_sceneManager.GetObject(1);
 
-    m_GUI.MakeSlider("Rotate angle", &m_rotateAngle, -1.0, 1.0);
-    m_GUI.MakeButton("Projection switch", std::bind([this]()
-                                                    { m_sceneManager.SetProjectionFlag(!m_sceneManager.IsProjectionOrthographic()); }));
-    // m_GUI.MakeSlider("Element gap", &(m_GUI.m_elementGap), 0, 0.11);
-    // m_GUI.MakeSlider("Element height", &(m_GUI.m_elementHeight), 0.15, 0.30);
-    // m_GUI.MakeSlider("Left border", &(m_GUI.m_leftBorder), -1, 0.85);
-    m_GUI.MakeHUDElement("Time", std::bind([this]()
-                                           { return m_elapsedFixed.asSeconds(); }));
-    m_GUI.MakeHUDElement("Time for tick", std::bind([this]()
-                                                    { return m_elapsed.asSeconds(); }));
-    m_GUI.MakeHUDElement("Object count", std::bind([this]()
-                                                   { return std::to_string(m_sceneManager.GetObjectCount()); }));
-    m_GUI.MakeButton("Rotate switch", std::bind([this]()
-                                                { m_flagRotate = !m_flagRotate; }));
-    // m_GUI.MakeSlider("Light red value", &m_lightCube->m_diffusive.x, 0, 1);
-    // m_GUI.MakeSlider("Light green value", &m_lightCube->m_diffusive.y, 0, 1);
-    // m_GUI.MakeSlider("Light blue value", &m_lightCube->m_diffusive.z, 0, 1);
-    m_GUI.MakeButton("Switch following", std::bind([this]()
-                                                   { m_flagFollow = !m_flagFollow; }));
-    m_GUI.MakeSlider("Radius", &m_radius, 0, 10);
-    m_GUI.MakeSlider("Camera distance", &m_cameraDistance, 0, 20);
-    m_GUI.MakeHUDElement("Picked object", std::bind([this]()
-                                                    { return std::to_string(m_sceneManager.GetPickedObjectId()); }));
+    m_GUI.MakeSlider("Rotate angle", &m_rotateAngle, -1.0f, 1.0f);
+    m_GUI.MakeButton("Projection switch", [this]()
+                     { m_sceneManager.SetProjectionFlag(!m_sceneManager.IsProjectionOrthographic()); });
+    m_GUI.MakeSlider("Element gap", &(m_GUI.m_elementGap), 0.0f, 0.11f);
+    m_GUI.MakeSlider("Element height", &(m_GUI.m_elementHeight), 0.15f, 0.30f);
+    m_GUI.MakeSlider("Left border", &(m_GUI.m_leftBorder), -1.0f, 0.85f);
+    m_GUI.MakeLabel("Time", [this]()
+                    { return m_elapsedFixed.asSeconds(); });
+    m_GUI.MakeLabel("Time for tick", [this]()
+                    { return m_elapsed.asSeconds(); });
+    m_GUI.MakeLabel("Object count", [this]()
+                    { return std::to_string(m_sceneManager.GetObjectCount()); });
+    m_GUI.MakeButton("Rotate switch", [this]()
+                     { m_flagRotate = !m_flagRotate; });
+    m_GUI.MakeButton("Switch following", [this]()
+                     { m_flagFollow = !m_flagFollow; });
+    m_GUI.MakeSlider("Radius", &m_radius, 0.0f, 10.0f);
+    m_GUI.MakeSlider("Camera distance", &m_cameraDistance, 0.0f, 20.0f);
+    m_GUI.MakeLabel("Picked object", [this]()
+                    { return std::to_string(m_sceneManager.GetPickedObjectId()); });
 
-    // m_GUI.MakeSlider("Near distance", &m_sceneManager.m_nearDistance, 0.1, 10);
-    m_GUI.MakeButton("Spawn lightCube", std::bind([this]()
-                                                  { 
+    m_GUI.MakeButton("Spawn lightCube", [this]()
+                     { 
             m_targetPoint = m_camera->GetTargetPoint(m_cameraDistance);
             LightComponent pointLight = LightComponent::Point(
                 { 0.2f, 0.2f, 0.2f },
                 { 0.8f, 0.8f, 0.8f },
                 { 1.0f, 1.0f, 1.0f });
-            m_sceneManager.MakeLightCube({m_targetPoint, { 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }}, pointLight); }));
+            m_sceneManager.MakeLightCube({m_targetPoint, { 0.0f, 0.0f, 0.0f }, { 0.2f, 0.2f, 0.2f }}, pointLight); });
 
-    m_GUI.MakeButton("Toggle YawGlobal", std::bind([this]()
-                                                   { m_camera->ToggleYawGlobal(); }));
-    m_GUI.MakeHUDElement("Camera pitch", std::bind([this]()
-                                                   { return std::to_string(m_camera->GetRotation().x); }));
-    m_GUI.MakeHUDElement("Camera yaw", std::bind([this]()
-                                                 { return std::to_string(m_camera->GetRotation().y); }));
-    m_GUI.MakeHUDElement("Camera roll", std::bind([this]()
-                                                  { return std::to_string(m_camera->GetRotation().z); }));
+    m_GUI.MakeButton("Toggle YawGlobal", [this]()
+                     { m_camera->ToggleYawGlobal(); });
+    m_GUI.MakeLabel("Camera pitch", [this]()
+                    { return std::to_string(m_camera->GetRotation().x); });
+    m_GUI.MakeLabel("Camera yaw", [this]()
+                    { return std::to_string(m_camera->GetRotation().y); });
+    m_GUI.MakeLabel("Camera roll", [this]()
+                    { return std::to_string(m_camera->GetRotation().z); });
 }
 
 Game::~Game() {}

@@ -11,6 +11,16 @@ Renderer::~Renderer()
     m_sharedContext->graphics->FreeMesh(std::get<0>(m_rectangleMesh), std::get<1>(m_rectangleMesh), std::get<2>(m_rectangleMesh));
 }
 
+void Renderer::BeginGUIRender()
+{
+    glDisable(GL_DEPTH_TEST); //* GUI always draws on top of everything
+}
+
+void Renderer::EndGUIRender()
+{
+    glEnable(GL_DEPTH_TEST);
+}
+
 void Renderer::RenderObjects(const std::vector<std::unique_ptr<Object>>& l_objects, sf::Vector3f l_cameraPosition)
 {
     for (const auto& elem : l_objects)

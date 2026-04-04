@@ -15,6 +15,9 @@ public:
     Renderer(SharedContext* l_sharedContext);
     ~Renderer();
 
+    void BeginGUIRender();
+    void EndGUIRender();
+
     void RenderObjects(const std::vector<std::unique_ptr<Object>>& l_objects, sf::Vector3f l_cameraPosition);
     void RenderTextGUI(const std::string& text, GLfloat x, GLfloat y,
                        GLfloat sx, GLfloat sy, GLfloat scale,
