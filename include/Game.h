@@ -2,6 +2,7 @@
 
 #include "Camera.h"
 #include "GUI.h"
+#include "InputManager.h"
 #include "Matrix.h"
 #include "Renderer.h"
 #include "SceneManager.h"
@@ -29,9 +30,10 @@ private:
     MeshManager m_meshManager;
     ShaderManager m_shaderManager;
     Renderer m_renderer;
-    GUI m_GUI;
+    WidgetBox m_GUI;
     Camera* m_camera;
     SceneManager m_sceneManager;
+    InputManager m_inputManager;
 
     sf::Clock m_clock;
     sf::Time m_elapsed;

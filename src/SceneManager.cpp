@@ -152,9 +152,9 @@ Object* SceneManager::MakeObject(GLuint l_ID, Transform l_transform, std::string
 
 void SceneManager::HandleInput()
 {
-    if (m_pickingCooldown == 0 and sf::Mouse::isButtonPressed(sf::Mouse::Left))
+    if (m_sharedContext->inputManager->IsMouseButtonReleased(sf::Mouse::Left))
     {
-        sf::Vector2i mousePos = sf::Mouse::getPosition(*m_sharedContext->window->GetWindow());
+        sf::Vector2i mousePos = m_sharedContext->inputManager->GetMousePosition();
 
         GLuint windowWidth  = m_sharedContext->window->GetWindowSize().x;
         GLuint windowHeight = m_sharedContext->window->GetWindowSize().y;
@@ -162,16 +162,15 @@ void SceneManager::HandleInput()
         GLuint pixelX = (GLuint)(((float)mousePos.x / windowWidth) * m_sharedContext->graphics->m_pickingWidth);
         GLuint pixelY = (GLuint)(((float)(windowHeight - 1 - mousePos.y) / windowHeight) * m_sharedContext->graphics->m_pickingHeight);
 
-        sf::Vector2f NDC_for_GUI_check = m_sharedContext->GUI->ConvertScreenCoordinates(sf::Mouse::getPosition(*m_sharedContext->window->GetWindow()));
+        sf::Vector2f NDC_for_GUI_check = m_sharedContext->GUI->ConvertScreenCoordinates(mousePos);
         if (NDC_for_GUI_check.x < m_sharedContext->GUI->m_leftBorder or
             NDC_for_GUI_check.x > m_sharedContext->GUI->m_rightBorder or
             NDC_for_GUI_check.y < m_sharedContext->GUI->m_elements.back()->m_topBorder - m_sharedContext->GUI->m_elementHeight or
             NDC_for_GUI_check.y > m_sharedContext->GUI->m_elements.front()->m_topBorder)
         {
-            m_pickingCords.x  = pixelX;
-            m_pickingCords.y  = pixelY;
-            m_flagPicked      = true;
-            m_pickingCooldown = m_sharedContext->m_cooldownResetValue;
+            m_pickingCords.x = pixelX;
+            m_pickingCords.y = pixelY;
+            m_flagPicked     = true;
         }
     }
 
@@ -187,9 +186,8 @@ void SceneManager::HandleInput()
         sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
     }
 
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::M) and m_mouseCooldown < m_sharedContext->m_cooldownDeadZone)
+    if (m_sharedContext->inputManager->IsKeyReleased(sf::Keyboard::M))
     {
-        m_mouseCooldown    = m_sharedContext->m_cooldownResetValue;
         m_flagReleaseMouse = !m_flagReleaseMouse;
         (*m_sharedContext->window->GetWindow()).setMouseCursorVisible(m_flagReleaseMouse);
         sf::Vector2i windowCenter = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
@@ -202,30 +200,6 @@ void SceneManager::HandleInput()
 
 void SceneManager::Update(GLint l_elapsed)
 {
-    if (m_pickingCooldown > 0)
-    {
-        if (m_pickingCooldown - l_elapsed < 0)
-        {
-            m_pickingCooldown = 0;
-        }
-        else
-        {
-            m_pickingCooldown = m_pickingCooldown - l_elapsed;
-        }
-    }
-
-    if (m_mouseCooldown > 0)
-    {
-        if (m_mouseCooldown - l_elapsed < 0)
-        {
-            m_mouseCooldown = 0;
-        }
-        else
-        {
-            m_mouseCooldown -= l_elapsed;
-        }
-    }
-
     if (m_flagPickedReady == true)
     {
         m_pickedObject = m_sharedContext->graphics->GetPickingResult();

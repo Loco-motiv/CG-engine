@@ -1,6 +1,6 @@
 #include "Window.h"
 
-Window::Window(const std::string& l_title, const sf::Vector2u& l_size)
+Window::Window(const std::string& l_title, const sf::Vector2u& l_size, SharedContext* l_sharedContext) : m_sharedContext(l_sharedContext)
 {
     Setup(l_title, l_size);
 }
@@ -44,23 +44,20 @@ void Window::Destroy()
 
 void Window::Update()
 {
-    sf::Event event;
-    while (m_window.pollEvent(event))
+    if (m_sharedContext->inputManager->IsWindowClosed())
     {
-        if (event.type == sf::Event::Closed)
-        {
-            m_isOver = true;
-        }
-        else if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::F5)
-        {
-            ToggleFullscreen();
-        }
-        else if (event.type == sf::Event::Resized)
-        {
-            //* adjust the viewport when the window is resized
-            glViewport(0, 0, event.size.width, event.size.height); //* calculate opengl coordinates from display coordinates
-            m_windowSize = m_window.getSize();                     //* update attribute for GetWindowSize
-        }
+        m_isOver = true;
+    }
+    if (m_sharedContext->inputManager->IsKeyReleased(sf::Keyboard::F5))
+    {
+        ToggleFullscreen();
+    }
+    if (m_sharedContext->inputManager->IsWindowResized())
+    {
+        //* adjust the viewport when the window is resized
+        sf::Vector2u newSize = m_sharedContext->inputManager->GetWindowSize();
+        glViewport(0, 0, newSize.x, newSize.y); //* calculate opengl coordinates from display coordinates
+        m_windowSize = newSize;                 //* update attribute for GetWindowSize
     }
 }
 

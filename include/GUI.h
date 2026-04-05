@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Graphics.h"    //TODO remove
+#include "Graphics.h" //TODO remove
+#include "InputManager.h"
 #include "Matrix.h"
+#include "Mesh.h"
 #include "MeshManager.h" //TODO remove
 #include "Renderer.h"
 #include "ShaderManager.h"
@@ -16,14 +18,43 @@
 #include <string>
 #include <vector>
 
-class GUI;
+class WidgetBox;
 class SharedContext;
 
-class GUIElement
+class Quad
 {
 public:
-    GUIElement(std::string l_name, GLfloat l_topBorder, GUI* l_GUI);
-    virtual ~GUIElement() = 0;
+    std::shared_ptr<Mesh> mesh;
+    sf::Vector3f colour;
+    GLfloat alpha;
+    sf::Vector3f outlineColour;
+    GLfloat outlineThickness;
+    GLfloat cornerRadius;
+    sf::Vector2i dimensions;
+
+    MatrixFloat transform;
+};
+
+class WidgetText
+{
+public:
+    std::string text;
+    sf::Vector3f colour;
+    GLfloat alpha;
+    sf::Vector3f outlineColour;
+    GLfloat outlineThickness;
+    sf::Vector2i dimensions;
+
+    sf::Vector3f position;
+    sf::Vector2f scale;
+};
+
+class Widget
+{
+public:
+    Widget(std::string l_name, GLfloat l_topBorder, WidgetBox* l_widgetBox);
+    // Widget(std::string l_name);
+    virtual ~Widget() = 0;
 
     virtual void HandleInput(GLfloat xCoordinate, GLfloat yCoordinate) = 0;
     virtual void Render() const                                        = 0;
@@ -31,13 +62,14 @@ public:
 
     std::string m_name;
     GLfloat m_topBorder;
-    GUI* m_GUI;
+    WidgetBox* m_widgetBox;
 };
 
-class Button : public GUIElement
+class Button : public Widget
 {
 public:
-    Button(std::string l_name, std::function<void()> l_callback, GLfloat l_topBorder, GUI* l_GUI);
+    Button(std::string l_name, std::function<void()> l_callback, GLfloat l_topBorder, WidgetBox* l_widgetBox);
+    // Button(std::string l_name, std::function<void()> l_callback);
     ~Button();
 
     void HandleInput(GLfloat xCoordinate, GLfloat yCoordinate) override;
@@ -45,17 +77,16 @@ public:
     void Update(GLint l_elapsed) override;
 
 private:
-    GLint m_cooldown = 0;
     std::function<void()> m_callback;
 };
 
 template <typename T>
-class Slider : public GUIElement
+class Slider : public Widget
 {
 public:
     Slider(std::string l_name, T* l_currentValue, T l_minValue, T l_maxValue,
-           GLfloat l_topBorder, GUI* l_GUI) : GUIElement{ l_name, l_topBorder, l_GUI }, m_minValue{ l_minValue },
-                                              m_maxValue{ l_maxValue }, m_currentValue{ l_currentValue } {}
+           GLfloat l_topBorder, WidgetBox* l_widgetBox) : Widget{ l_name, l_topBorder, l_widgetBox }, m_minValue{ l_minValue },
+                                                          m_maxValue{ l_maxValue }, m_currentValue{ l_currentValue } {}
     ~Slider() {}
 
     void HandleInput(GLfloat xCoordinate, GLfloat yCoordinate) override;
@@ -70,10 +101,10 @@ private:
     T* m_currentValue;
 };
 
-class Label : public GUIElement
+class Label : public Widget
 {
 public:
-    Label(std::string l_name, std::function<std::string()> l_getStringFunction, GLfloat l_topBorder, GUI* l_GUI);
+    Label(std::string l_name, std::function<std::string()> l_getStringFunction, GLfloat l_topBorder, WidgetBox* l_widgetBox);
     ~Label();
 
     void HandleInput(GLfloat xCoordinate, GLfloat yCoordinate) override;
@@ -84,10 +115,10 @@ private:
     std::function<std::string()> m_getStringFunction;
 };
 
-class Checkbox : public GUIElement
+class Checkbox : public Widget
 {
 public:
-    Checkbox(std::string l_name, GLboolean* l_currentValue, GLfloat l_topBorder, GUI* l_GUI);
+    Checkbox(std::string l_name, GLboolean* l_currentValue, GLfloat l_topBorder, WidgetBox* l_widgetBox);
     ~Checkbox();
 
     void HandleInput(GLfloat xCoordinate, GLfloat yCoordinate) override;
@@ -95,16 +126,15 @@ public:
     void Update(GLint l_elapsed) override;
 
 private:
-    GLint m_cooldown = 0;
     GLboolean* m_currentValue;
 };
 
-class GUI
+class WidgetBox
 {
 public:
-    GUI(SharedContext* l_sharedContext, GLfloat l_leftBorder, GLfloat l_rightBorder,
-        GLfloat l_elementHeight, GLfloat l_elementGap);
-    ~GUI();
+    WidgetBox(SharedContext* l_sharedContext, GLfloat l_leftBorder, GLfloat l_rightBorder,
+              GLfloat l_elementHeight, GLfloat l_elementGap);
+    ~WidgetBox();
 
     SharedContext* m_sharedContext;
     GLfloat m_leftBorder;
@@ -162,9 +192,9 @@ public:
     void Render();
     void HandleInput();
 
-    sf::Vector2f ConvertScreenCoordinates(sf::Vector2i&& l_point);
+    sf::Vector2f ConvertScreenCoordinates(sf::Vector2i l_point);
 
-    std::vector<std::unique_ptr<GUIElement>> m_elements;
+    std::vector<std::unique_ptr<Widget>> m_elements;
 
 private:
     GLfloat m_topBorder = 1.0f - m_elementGap / 2;
@@ -173,9 +203,9 @@ private:
 template <typename T>
 void Slider<T>::HandleInput(GLfloat xCoordinate, GLfloat yCoordinate)
 {
-    if (xCoordinate > m_GUI->m_leftBorder and
-        xCoordinate < m_GUI->m_rightBorder and
-        yCoordinate > m_topBorder - m_GUI->m_elementHeight and
+    if (xCoordinate > m_widgetBox->m_leftBorder and
+        xCoordinate < m_widgetBox->m_rightBorder and
+        yCoordinate > m_topBorder - m_widgetBox->m_elementHeight and
         yCoordinate < m_topBorder)
     {
         *m_currentValue = ConvertNDC(xCoordinate);
@@ -185,34 +215,34 @@ void Slider<T>::HandleInput(GLfloat xCoordinate, GLfloat yCoordinate)
 template <typename T>
 void Slider<T>::Render() const
 {
-    m_GUI->m_sharedContext->renderer->RenderGUI(
-        (m_GUI->m_rightBorder + m_GUI->m_leftBorder) / 2.0f,
-        (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f,
-        m_GUI->m_rightBorder - m_GUI->m_leftBorder - m_GUI->m_elementGap,
-        m_GUI->m_elementHeight / 16.0f,
+    m_widgetBox->m_sharedContext->renderer->RenderGUI(
+        (m_widgetBox->m_rightBorder + m_widgetBox->m_leftBorder) / 2.0f,
+        (2.0f * m_topBorder - m_widgetBox->m_elementHeight) / 2.0f,
+        m_widgetBox->m_rightBorder - m_widgetBox->m_leftBorder - m_widgetBox->m_elementGap,
+        m_widgetBox->m_elementHeight / 16.0f,
         0.3f, 0.3f, 0.3f, 1.0f);
 
     GLfloat currentNDC = ConvertCurrent();
-    m_GUI->m_sharedContext->renderer->RenderGUI(
+    m_widgetBox->m_sharedContext->renderer->RenderGUI(
         currentNDC,
-        (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f,
-        m_GUI->m_elementHeight / 8.0f,
-        m_GUI->m_elementHeight - m_GUI->m_elementGap * 1.8f,
+        (2.0f * m_topBorder - m_widgetBox->m_elementHeight) / 2.0f,
+        m_widgetBox->m_elementHeight / 8.0f,
+        m_widgetBox->m_elementHeight - m_widgetBox->m_elementGap * 1.8f,
         0.7f, 0.7f, 0.7f, 1.0f);
 
     std::string fullText = std::format("{}: {}", m_name, *m_currentValue);
 
-    sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(
-        fullText, m_GUI->m_NDCTransformerX, m_GUI->m_NDCTransformerY,
-        m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY));
+    sf::Vector2f textSize = m_widgetBox->m_sharedContext->graphics->GetTextDimensions(
+        fullText, m_widgetBox->m_NDCTransformerX, m_widgetBox->m_NDCTransformerY,
+        m_widgetBox->m_elementGap / m_widgetBox->m_sharedContext->graphics->GetMaxTextHeight(m_widgetBox->m_NDCTransformerY));
 
-    m_GUI->m_sharedContext->renderer->RenderTextGUI(
+    m_widgetBox->m_sharedContext->renderer->RenderTextGUI(
         fullText,
-        (m_GUI->m_leftBorder + m_GUI->m_rightBorder - textSize.x) / 2.0f,
-        m_topBorder - m_GUI->m_elementGap / 2.0f,
-        m_GUI->m_NDCTransformerX,
-        m_GUI->m_NDCTransformerY,
-        m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY),
+        (m_widgetBox->m_leftBorder + m_widgetBox->m_rightBorder - textSize.x) / 2.0f,
+        m_topBorder - m_widgetBox->m_elementGap / 2.0f,
+        m_widgetBox->m_NDCTransformerX,
+        m_widgetBox->m_NDCTransformerY,
+        m_widgetBox->m_elementGap / m_widgetBox->m_sharedContext->graphics->GetMaxTextHeight(m_widgetBox->m_NDCTransformerY),
         0.1f, 0.1f, 0.9f, 1.0f);
 }
 
@@ -220,24 +250,24 @@ template <typename T>
 GLfloat Slider<T>::ConvertCurrent() const
 {
     return ((static_cast<GLfloat>(*m_currentValue) - static_cast<GLfloat>(m_maxValue)) *
-            (m_GUI->m_rightBorder - m_GUI->m_leftBorder - m_GUI->m_elementGap) /
+            (m_widgetBox->m_rightBorder - m_widgetBox->m_leftBorder - m_widgetBox->m_elementGap) /
             static_cast<GLfloat>(m_maxValue - m_minValue)) +
-           m_GUI->m_rightBorder - m_GUI->m_elementGap / 2.0f;
+           m_widgetBox->m_rightBorder - m_widgetBox->m_elementGap / 2.0f;
 }
 
 template <typename T>
 T Slider<T>::ConvertNDC(GLfloat xCoordinate) const
 {
-    if (xCoordinate < m_GUI->m_leftBorder + m_GUI->m_elementGap / 2.0f)
+    if (xCoordinate < m_widgetBox->m_leftBorder + m_widgetBox->m_elementGap / 2.0f)
     {
         return m_minValue;
     }
-    if (xCoordinate > m_GUI->m_rightBorder - m_GUI->m_elementGap / 2.0f)
+    if (xCoordinate > m_widgetBox->m_rightBorder - m_widgetBox->m_elementGap / 2.0f)
     {
         return m_maxValue;
     }
-    GLfloat result = (static_cast<GLfloat>(m_maxValue - m_minValue) * (xCoordinate - m_GUI->m_rightBorder + m_GUI->m_elementGap / 2.0f) /
-                      (m_GUI->m_rightBorder - m_GUI->m_leftBorder - m_GUI->m_elementGap)) +
+    GLfloat result = (static_cast<GLfloat>(m_maxValue - m_minValue) * (xCoordinate - m_widgetBox->m_rightBorder + m_widgetBox->m_elementGap / 2.0f) /
+                      (m_widgetBox->m_rightBorder - m_widgetBox->m_leftBorder - m_widgetBox->m_elementGap)) +
                      static_cast<GLfloat>(m_maxValue);
     return static_cast<T>(result);
 }

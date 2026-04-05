@@ -2,6 +2,7 @@
 
 #include "Camera.h"
 #include "GUI.h"
+#include "InputManager.h"
 #include "MaterialManager.h"
 #include "MeshManager.h"
 #include "Object.h"
@@ -92,8 +93,6 @@ private:
     GLboolean m_flagProjection   = false;
     GLboolean m_flagReleaseMouse = true;
 
-    GLint m_mouseCooldown = 0;
-
     GLint m_objectCount     = 0;
     GLint m_spotLightCount  = 0;
     GLint m_pointLightCount = 0;
@@ -103,7 +102,6 @@ private:
     GLint m_pickedObject        = 0;
     GLboolean m_flagPicked      = false;
     GLboolean m_flagPickedReady = false;
-    GLint m_pickingCooldown     = 0;
 
     std::vector<std::unique_ptr<Object>> m_objects;
 };

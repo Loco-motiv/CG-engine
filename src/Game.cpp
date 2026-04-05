@@ -1,9 +1,10 @@
 #include "Game.h"
 
-Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_graphics(),
+Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600), &m_sharedContext), m_graphics(),
                m_textureManager(&m_sharedContext, "resources/textures/"), m_materialManager(&m_sharedContext, "resources/materials/"),
                m_meshManager(&m_sharedContext, "resources/meshes/"), m_shaderManager(&m_sharedContext, "resources/shaderPrograms/"),
-               m_renderer(&m_sharedContext), m_GUI(&m_sharedContext, 0.6f, 1.0f, 0.1f, 0.035f), m_sceneManager(&m_sharedContext)
+               m_renderer(&m_sharedContext), m_GUI(&m_sharedContext, 0.6f, 1.0f, 0.1f, 0.035f), m_sceneManager(&m_sharedContext),
+               m_inputManager()
 {
     m_sharedContext.graphics        = &m_graphics;
     m_sharedContext.renderer        = &m_renderer;
@@ -13,6 +14,7 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_graphics(),
     m_sharedContext.materialManager = &m_materialManager;
     m_sharedContext.meshManager     = &m_meshManager;
     m_sharedContext.shaderManager   = &m_shaderManager;
+    m_sharedContext.inputManager    = &m_inputManager;
 
     m_sceneManager.LoadScene("scenes/Scene_30-03-2026_19-00-54.327957800.txt");
     m_camera = m_sceneManager.GetCamera();
@@ -99,11 +101,13 @@ Window* Game::GetWindow()
 
 void Game::HandleInput()
 {
-    // save scene on i
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::I))
+    m_inputManager.HandleInput(m_window.GetWindow());
+
+    if (m_inputManager.IsKeyReleased(sf::Keyboard::I))
     {
         m_sceneManager.SaveScene("scenes/");
     }
+
     m_sceneManager.HandleInput();
 
     m_GUI.HandleInput();
