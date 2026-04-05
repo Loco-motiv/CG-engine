@@ -99,6 +99,62 @@ void Label::Render() const
 
 void Label::Update(GLint l_elapsed) {}
 
+//* Checkbox
+
+Checkbox::Checkbox(std::string l_name, GLboolean* l_currentValue, GLfloat l_topBorder, GUI* l_GUI)
+    : GUIElement(l_name, l_topBorder, l_GUI), m_currentValue{ l_currentValue } {}
+
+Checkbox::~Checkbox() {}
+
+void Checkbox::HandleInput(GLfloat xCoordinate, GLfloat yCoordinate)
+{
+    if (m_cooldown < m_GUI->m_sharedContext->m_cooldownDeadZone) //* dirty move to prevent button flickering
+    {
+        if (xCoordinate > m_GUI->m_leftBorder + m_GUI->m_elementGap / 2 and
+            xCoordinate < m_GUI->m_rightBorder - m_GUI->m_elementGap / 2 and
+            yCoordinate > m_topBorder - m_GUI->m_elementHeight + m_GUI->m_elementGap / 2 and
+            yCoordinate < m_topBorder - m_GUI->m_elementGap / 2)
+        {
+            m_cooldown      = m_GUI->m_sharedContext->m_cooldownResetValue;
+            *m_currentValue = !*m_currentValue;
+        }
+    }
+}
+
+void Checkbox::Render() const
+{
+    sf::Vector3f colour = *m_currentValue ? sf::Vector3f{ 0.1f, 0.9f, 0.1f } : sf::Vector3f{ 0.9f, 0.1f, 0.1f };
+
+    m_GUI->m_sharedContext->renderer->RenderGUI((m_GUI->m_leftBorder + m_GUI->m_rightBorder) / 2.0f, (2.0f * m_topBorder - m_GUI->m_elementHeight) / 2.0f,
+                                                m_GUI->m_rightBorder - m_GUI->m_leftBorder - m_GUI->m_elementGap, m_GUI->m_elementHeight - m_GUI->m_elementGap,
+                                                colour.x, colour.y, colour.z, 1.0f); //* draw rectangle
+
+    sf::Vector2f textSize = m_GUI->m_sharedContext->graphics->GetTextDimensions(m_name,
+                                                                                m_GUI->m_NDCTransformerX,
+                                                                                m_GUI->m_NDCTransformerY,
+                                                                                m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY));
+    m_GUI->m_sharedContext->renderer->RenderTextGUI(m_name, (m_GUI->m_leftBorder + m_GUI->m_rightBorder - textSize.x) / 2.0f,
+                                                    m_topBorder - (m_GUI->m_elementHeight + textSize.y) / 2.0f,
+                                                    m_GUI->m_NDCTransformerX,
+                                                    m_GUI->m_NDCTransformerY,
+                                                    m_GUI->m_elementGap / m_GUI->m_sharedContext->graphics->GetMaxTextHeight(m_GUI->m_NDCTransformerY), 0.1f, 0.1f, 0.9f, 1.0f);
+}
+
+void Checkbox::Update(GLint l_elapsed)
+{
+    if (m_cooldown > 0)
+    {
+        if (m_cooldown - l_elapsed < 0)
+        {
+            m_cooldown = 0;
+        }
+        else
+        {
+            m_cooldown = m_cooldown - l_elapsed;
+        }
+    }
+}
+
 //* GUI
 
 GUI::GUI(SharedContext* l_sharedContext, GLfloat l_leftBorder, GLfloat l_rightBorder,
@@ -137,6 +193,12 @@ void GUI::HandleInput()
             elem->HandleInput(xCoordinate, yCoordinate);
         }
     }
+}
+
+void GUI::MakeCheckbox(std::string l_name, GLboolean* l_currentValue)
+{
+    m_elements.push_back(std::make_unique<Checkbox>(l_name, l_currentValue, m_topBorder, this));
+    m_topBorder -= m_elementHeight;
 }
 
 void GUI::Update(GLint l_elapsed)

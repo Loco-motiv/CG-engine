@@ -22,7 +22,7 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_graphics(),
     m_GUI.MakeButton("Projection switch", [this]()
                      { m_sceneManager.SetProjectionFlag(!m_sceneManager.IsProjectionOrthographic()); });
     m_GUI.MakeSlider("Element gap", &(m_GUI.m_elementGap), 0.0f, 0.11f);
-    m_GUI.MakeSlider("Element height", &(m_GUI.m_elementHeight), 0.15f, 0.30f);
+    m_GUI.MakeSlider("Element height", &(m_GUI.m_elementHeight), 0.1f, 0.30f);
     m_GUI.MakeSlider("Left border", &(m_GUI.m_leftBorder), -1.0f, 0.85f);
     m_GUI.MakeLabel("Time", [this]()
                     { return m_elapsedFixed.asSeconds(); });
@@ -30,10 +30,9 @@ Game::Game() : m_window("CG_engine", sf::Vector2u(800, 600)), m_graphics(),
                     { return m_elapsed.asSeconds(); });
     m_GUI.MakeLabel("Object count", [this]()
                     { return std::to_string(m_sceneManager.GetObjectCount()); });
-    m_GUI.MakeButton("Rotate switch", [this]()
-                     { m_flagRotate = !m_flagRotate; });
-    m_GUI.MakeButton("Switch following", [this]()
-                     { m_flagFollow = !m_flagFollow; });
+
+    m_GUI.MakeCheckbox("Rotate", &m_flagRotate);
+    m_GUI.MakeCheckbox("Follow", &m_flagFollow);
     m_GUI.MakeSlider("Radius", &m_radius, 0.0f, 10.0f);
     m_GUI.MakeSlider("Camera distance", &m_cameraDistance, 0.0f, 20.0f);
     m_GUI.MakeLabel("Picked object", [this]()

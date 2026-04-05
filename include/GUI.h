@@ -84,6 +84,21 @@ private:
     std::function<std::string()> m_getStringFunction;
 };
 
+class Checkbox : public GUIElement
+{
+public:
+    Checkbox(std::string l_name, GLboolean* l_currentValue, GLfloat l_topBorder, GUI* l_GUI);
+    ~Checkbox();
+
+    void HandleInput(GLfloat xCoordinate, GLfloat yCoordinate) override;
+    void Render() const override;
+    void Update(GLint l_elapsed) override;
+
+private:
+    GLint m_cooldown = 0;
+    GLboolean* m_currentValue;
+};
+
 class GUI
 {
 public:
@@ -140,6 +155,8 @@ public:
         m_elements.push_back(std::make_unique<Label>(l_name, getString, m_topBorder, this));
         m_topBorder -= m_elementHeight;
     }
+
+    void MakeCheckbox(std::string l_name, GLboolean* l_currentValue);
 
     void Update(GLint l_elapsed);
     void Render();
