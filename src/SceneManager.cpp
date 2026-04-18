@@ -152,61 +152,57 @@ Object* SceneManager::MakeObject(GLuint l_ID, Transform l_transform, std::string
 
 void SceneManager::HandleInput()
 {
-    if (m_sharedContext->inputManager->IsMouseButtonReleased(sf::Mouse::Left))
+    if (m_sharedContext->inputManager->IsGUITookInput() == false)
     {
-        sf::Vector2i mousePos = m_sharedContext->inputManager->GetMousePosition();
-
-        GLuint windowWidth  = m_sharedContext->window->GetWindowSize().x;
-        GLuint windowHeight = m_sharedContext->window->GetWindowSize().y;
-
-        GLuint pixelX = (GLuint)(((float)mousePos.x / windowWidth) * m_sharedContext->graphics->m_pickingWidth);
-        GLuint pixelY = (GLuint)(((float)(windowHeight - 1 - mousePos.y) / windowHeight) * m_sharedContext->graphics->m_pickingHeight);
-
-        sf::Vector2f NDC_for_GUI_check = m_sharedContext->GUI->ConvertScreenCoordinates(mousePos);
-        if (NDC_for_GUI_check.x < m_sharedContext->GUI->m_leftBorder or
-            NDC_for_GUI_check.x > m_sharedContext->GUI->m_rightBorder or
-            NDC_for_GUI_check.y < m_sharedContext->GUI->m_elements.back()->m_topBorder - m_sharedContext->GUI->m_elementHeight or
-            NDC_for_GUI_check.y > m_sharedContext->GUI->m_elements.front()->m_topBorder)
+        if (m_sharedContext->inputManager->IsMouseButtonReleased(sf::Mouse::Left))
         {
+            sf::Vector2i mousePos = m_sharedContext->inputManager->GetMousePosition();
+
+            GLuint windowWidth  = m_sharedContext->window->GetWindowSize().x;
+            GLuint windowHeight = m_sharedContext->window->GetWindowSize().y;
+
+            GLuint pixelX = (GLuint)(((float)mousePos.x / windowWidth) * m_sharedContext->graphics->m_pickingWidth);
+            GLuint pixelY = (GLuint)(((float)(windowHeight - 1 - mousePos.y) / windowHeight) * m_sharedContext->graphics->m_pickingHeight);
+
             m_pickingCords.x = pixelX;
             m_pickingCords.y = pixelY;
             m_flagPicked     = true;
         }
-    }
 
-    GLint xDelta = 0;
-    GLint yDelta = 0;
-    if (!m_flagReleaseMouse)
-    {
-        sf::Vector2i mousePosition = sf::Mouse::getPosition(*m_sharedContext->window->GetWindow());
-        sf::Vector2i windowCenter  = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
-                                                  m_sharedContext->window->GetWindowSize().y / 2);
-        xDelta                     = mousePosition.x - windowCenter.x;
-        yDelta                     = mousePosition.y - windowCenter.y;
-        sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
-    }
+        GLint xDelta = 0;
+        GLint yDelta = 0;
+        if (!m_flagReleaseMouse)
+        {
+            sf::Vector2i mousePosition = sf::Mouse::getPosition(*m_sharedContext->window->GetWindow());
+            sf::Vector2i windowCenter  = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
+                                                      m_sharedContext->window->GetWindowSize().y / 2);
+            xDelta                     = mousePosition.x - windowCenter.x;
+            yDelta                     = mousePosition.y - windowCenter.y;
+            sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
+        }
 
-    if (m_sharedContext->inputManager->IsKeyReleased(sf::Keyboard::M))
-    {
-        m_flagReleaseMouse = !m_flagReleaseMouse;
-        (*m_sharedContext->window->GetWindow()).setMouseCursorVisible(m_flagReleaseMouse);
-        sf::Vector2i windowCenter = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
-                                                 m_sharedContext->window->GetWindowSize().y / 2);
-        sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
-    }
+        if (m_sharedContext->inputManager->IsKeyReleased(sf::Keyboard::M))
+        {
+            m_flagReleaseMouse = !m_flagReleaseMouse;
+            (*m_sharedContext->window->GetWindow()).setMouseCursorVisible(m_flagReleaseMouse);
+            sf::Vector2i windowCenter = sf::Vector2i(m_sharedContext->window->GetWindowSize().x / 2,
+                                                     m_sharedContext->window->GetWindowSize().y / 2);
+            sf::Mouse::setPosition(windowCenter, *m_sharedContext->window->GetWindow());
+        }
+        if (m_sharedContext->inputManager->IsKeyReleased(sf::Keyboard::I))
+        {
+            SaveScene("scenes/");
+        }
 
-    m_camera.HandleInput(xDelta, yDelta);
+        m_camera.HandleInput(xDelta, yDelta);
+    }
 }
 
 void SceneManager::Update(GLint l_elapsed)
 {
     if (m_flagPickedReady == true)
     {
-        m_pickedObject = m_sharedContext->graphics->GetPickingResult();
-        if (m_pickedObject != 0)
-        {
-            std::cout << m_pickedObject << '\n';
-        }
+        m_pickedObject    = m_sharedContext->graphics->GetPickingResult();
         m_flagPickedReady = false;
     }
 
@@ -243,10 +239,6 @@ void SceneManager::Render()
 
         LightType elemType = elem->GetLight().type;
 
-        if (elemType != LightType::None and elem->GetLight().hasChanges)
-        {
-            m_sharedContext->renderer->UpdateLightData(elem.get(), m_pointLightCount, m_spotLightCount);
-        }
         if (elemType == LightType::Point)
         {
             m_pointLightCount++;
@@ -254,6 +246,10 @@ void SceneManager::Render()
         else if (elemType == LightType::Spot)
         {
             m_spotLightCount++;
+        }
+        if (elemType != LightType::None and elem->GetLight().hasChanges)
+        {
+            m_sharedContext->renderer->UpdateLightData(elem.get(), m_pointLightCount, m_spotLightCount);
         }
     }
 

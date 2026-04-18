@@ -16,6 +16,8 @@ void InputManager::HandleInput(sf::Window* l_window)
     m_windowClosed    = false;
     m_windowResized   = false;
     m_mouseWheelDelta = 0.0f;
+    m_enteredText     = 0;
+    m_isGUITookInput  = false;
 
     m_mousePosition = sf::Mouse::getPosition(*l_window);
 
@@ -46,18 +48,26 @@ void InputManager::HandleInput(sf::Window* l_window)
         else if (event.type == sf::Event::KeyPressed)
         {
             m_keyPressed[event.key.code] = true;
+            m_keyHeld[event.key.code]    = true;
         }
         else if (event.type == sf::Event::KeyReleased)
         {
             m_keyPressed[event.key.code] = false;
+            m_keyHeld[event.key.code]    = false;
         }
         else if (event.type == sf::Event::MouseButtonPressed)
         {
             m_mouseButtonPressed[event.mouseButton.button] = true;
+            m_mouseButtonHeld[event.mouseButton.button]    = true;
         }
         else if (event.type == sf::Event::MouseButtonReleased)
         {
             m_mouseButtonPressed[event.mouseButton.button] = false;
+            m_mouseButtonHeld[event.mouseButton.button]    = false;
+        }
+        else if (event.type == sf::Event::TextEntered)
+        {
+            m_enteredText = event.text.unicode;
         }
     }
 }
@@ -65,6 +75,11 @@ void InputManager::HandleInput(sf::Window* l_window)
 bool InputManager::IsKeyPressed(sf::Keyboard::Key l_key) const
 {
     return m_keyPressed.contains(l_key) ? m_keyPressed.at(l_key) : false;
+}
+
+bool InputManager::IsKeyHeld(sf::Keyboard::Key l_key) const
+{
+    return m_keyHeld.contains(l_key) ? m_keyHeld.at(l_key) : false;
 }
 
 bool InputManager::IsKeyReleased(sf::Keyboard::Key l_key) const
@@ -77,6 +92,11 @@ bool InputManager::IsMouseButtonPressed(sf::Mouse::Button l_button) const
     return m_mouseButtonPressed.contains(l_button) ? m_mouseButtonPressed.at(l_button) : false;
 }
 
+bool InputManager::IsMouseButtonHeld(sf::Mouse::Button l_button) const
+{
+    return m_mouseButtonHeld.contains(l_button) ? m_mouseButtonHeld.at(l_button) : false;
+}
+
 bool InputManager::IsMouseButtonReleased(sf::Mouse::Button l_button) const
 {
     return m_mouseButtonPressed.contains(l_button) ? !m_mouseButtonPressed.at(l_button) : false;
@@ -85,6 +105,11 @@ bool InputManager::IsMouseButtonReleased(sf::Mouse::Button l_button) const
 bool InputManager::HasFocus() const
 {
     return m_hasFocus;
+}
+
+sf::Uint32 InputManager::GetEnteredText() const
+{
+    return m_enteredText;
 }
 
 float InputManager::GetMouseWheelDelta() const
@@ -110,4 +135,14 @@ bool InputManager::IsWindowResized() const
 sf::Vector2u InputManager::GetWindowSize() const
 {
     return m_windowSize;
+}
+
+void InputManager::GUITookInput(bool l_isGUITookInput)
+{
+    m_isGUITookInput = l_isGUITookInput;
+}
+
+bool InputManager::IsGUITookInput() const
+{
+    return m_isGUITookInput;
 }

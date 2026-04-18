@@ -20,6 +20,7 @@ public:
     sf::Window* GetWindow();
     sf::Vector2u GetWindowSize();
     void ToggleFullscreen();
+    void SetSize(const sf::Vector2u& l_size);
 
 private:
     void Setup(const std::string& l_title, const sf::Vector2u& l_size);

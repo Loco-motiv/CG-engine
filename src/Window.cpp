@@ -64,8 +64,17 @@ void Window::Update()
 void Window::ToggleFullscreen()
 {
     m_isFullscreen = !m_isFullscreen;
-    Destroy();
-    Create();
+    // Destroy();
+    // Create();
+    // m_window.setActive(true);
+    // glViewport(0, 0, m_windowSize.x, m_windowSize.y); //TODO dont work redo
+}
+
+void Window::SetSize(const sf::Vector2u& l_size)
+{
+    m_windowSize = l_size;
+    m_window.setSize(m_windowSize);
+    glViewport(0, 0, m_windowSize.x, m_windowSize.y);
 }
 
 bool Window::IsOver() { return m_isOver; }

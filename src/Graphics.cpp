@@ -144,7 +144,7 @@ void Graphics::ConfigureFreeType()
         std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
         return;
     }
-    FT_Set_Pixel_Sizes(m_face, 0, 32);
+    FT_Set_Pixel_Sizes(m_face, 0, m_maxTextHeight);
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
@@ -198,9 +198,6 @@ void Graphics::ConfigureFreeType()
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-
-    m_minTextHeight = Characters['a'].bearingTop;
-    m_maxTextHeight = Characters['T'].bearingTop + Characters['p'].sizeY - Characters['p'].bearingTop;
 }
 
 void Graphics::MakePBOs()
@@ -533,22 +530,9 @@ Character Graphics::GetCharacter(char c) const
     }
 }
 
-sf::Vector2f Graphics::GetTextDimensions(const std::string& text, GLfloat sx, GLfloat sy, GLfloat scale)
+GLfloat Graphics::GetMaxTextHeight() const
 {
-    GLfloat x = 0;
-    std::string::const_iterator c;
-    for (c = text.begin(); c != text.end(); c++)
-    {
-        Character ch = Characters[*c];
-
-        x += (ch.advance >> 6) * scale * sx; // bitshift by 6 to get value in pixels (2^6 = 64)
-    }
-    return sf::Vector2f(x, m_minTextHeight * scale * sy);
-}
-
-GLfloat Graphics::GetMaxTextHeight(GLfloat sy) const
-{
-    return m_maxTextHeight * sy;
+    return m_maxTextHeight;
 }
 
 void Graphics::BeginPickingDraw()

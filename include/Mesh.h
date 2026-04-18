@@ -4,6 +4,9 @@
 class Mesh
 {
 public:
+    Mesh(std::string l_name, std::tuple<GLuint, GLuint, GLuint, GLuint> meshData, SharedContext* l_sharedContext)
+        : name(l_name), VAO(std::get<0>(meshData)), VBO(std::get<1>(meshData)), IBO(std::get<2>(meshData)), elementsCount(std::get<3>(meshData)),
+          m_sharedContext{ l_sharedContext } {}
     Mesh(const fs::path& l_path, SharedContext* l_sharedContext)
         : name(l_path.filename().string()), m_sharedContext{ l_sharedContext }
     {

@@ -30,7 +30,7 @@ private:
     MeshManager m_meshManager;
     ShaderManager m_shaderManager;
     Renderer m_renderer;
-    WidgetBox m_GUI;
+    WidgetManager m_widgetManager;
     Camera* m_camera;
     SceneManager m_sceneManager;
     InputManager m_inputManager;
@@ -51,4 +51,8 @@ private:
 
     Object* m_cube;
     Object* m_lightCube;
+
+    std::vector<std::string> m_resolutions = { "800x600", "1280x720", "1920x1080" };
+    GLint m_currentResolutionIndex         = 0;
+    std::string m_textString               = "Test";
 };

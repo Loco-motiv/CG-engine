@@ -1,7 +1,7 @@
 #pragma once
 
 class Camera;
-class WidgetBox;
+class WidgetManager;
 class Window;
 class Graphics;
 class TextureManager;
@@ -10,6 +10,7 @@ class MeshManager;
 class ShaderManager;
 class Renderer;
 class InputManager;
+class SceneManager;
 
 struct SharedContext
 {
@@ -18,7 +19,8 @@ struct SharedContext
     Window* window;
     Graphics* graphics;
     Renderer* renderer;
-    WidgetBox* GUI;
+    SceneManager* sceneManager;
+    WidgetManager* widgetManager;
     TextureManager* textureManager;
     MaterialManager* materialManager;
     MeshManager* meshManager;

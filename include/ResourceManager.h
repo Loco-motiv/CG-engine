@@ -7,6 +7,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <ranges>
 #include <string>
 
 class SharedContext;
@@ -26,6 +27,11 @@ public:
     std::shared_ptr<T> Get(std::string_view l_name)
     {
         std::string name(l_name);
+
+        if (m_preLoadedResources.contains(name))
+        {
+            return m_preLoadedResources[name];
+        }
 
         if (m_resources.find(name) != m_resources.end() and !m_resources[name].expired())
         {
@@ -54,6 +60,22 @@ public:
         return (path != m_paths.end() ? path->second : fs::path());
     }
 
+    std::vector<std::string> GetNames()
+    {
+        std::vector<std::string> names;
+
+        for (auto const& [key, val] : m_paths)
+        {
+            names.push_back(key);
+        }
+
+        for (auto const& [key, val] : m_preLoadedResources)
+        {
+            names.push_back(key);
+        }
+        return names;
+    }
+
     void AddPath(std::string_view l_name, const fs::path& l_path)
     {
         m_paths[std::string(l_name)] = l_path;
@@ -70,6 +92,10 @@ protected:
         return static_cast<Derived*>(this)->Load(l_path);
     }
     SharedContext* m_sharedContext;
+
+    std::map<std::string, std::weak_ptr<T>> m_resources;
+    std::map<std::string, std::shared_ptr<T>> m_preLoadedResources;
+    std::map<std::string, fs::path> m_paths;
 
 private:
     void LoadPaths()
@@ -93,7 +119,4 @@ private:
     }
 
     fs::path m_resourceDirectory;
-
-    std::map<std::string, std::weak_ptr<T>> m_resources;
-    std::map<std::string, fs::path> m_paths;
 };

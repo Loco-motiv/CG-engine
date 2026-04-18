@@ -38,8 +38,7 @@ public:
     void DrawMesh(GLuint l_meshID, GLuint elementsCount);
 
     Character GetCharacter(char c) const;
-    sf::Vector2f GetTextDimensions(const std::string& text, GLfloat sx, GLfloat sy, GLfloat scale);
-    GLfloat GetMaxTextHeight(GLfloat sy) const;
+    GLfloat GetMaxTextHeight() const;
 
     void BeginPickingDraw();
     void EndPickingDraw(GLuint l_width, GLuint l_height);
@@ -74,6 +73,5 @@ private:
     FT_Face m_face;
     std::map<GLchar, Character> Characters;
 
-    GLfloat m_minTextHeight;
-    GLfloat m_maxTextHeight;
+    GLfloat m_maxTextHeight = 32;
 };

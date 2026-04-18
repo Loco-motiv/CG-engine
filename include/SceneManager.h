@@ -66,8 +66,6 @@ public:
     {
         for (const auto& object : m_objects)
         {
-            std::cout << object->GetID() << '\n';
-
             if (object->GetID() == l_id)
             {
                 return object.get();

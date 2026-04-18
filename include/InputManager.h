@@ -12,12 +12,15 @@ public:
     void HandleInput(sf::Window* l_window);
 
     bool IsKeyPressed(sf::Keyboard::Key l_key) const;
+    bool IsKeyHeld(sf::Keyboard::Key l_key) const;
     bool IsKeyReleased(sf::Keyboard::Key l_key) const;
     bool IsMouseButtonPressed(sf::Mouse::Button l_button) const;
+    bool IsMouseButtonHeld(sf::Mouse::Button l_button) const;
     bool IsMouseButtonReleased(sf::Mouse::Button l_button) const;
 
     bool HasFocus() const;
 
+    sf::Uint32 GetEnteredText() const;
     float GetMouseWheelDelta() const;
 
     sf::Vector2i GetMousePosition() const;
@@ -26,9 +29,14 @@ public:
     bool IsWindowResized() const;
     sf::Vector2u GetWindowSize() const;
 
+    void GUITookInput(bool l_isGUITookInput);
+    bool IsGUITookInput() const;
+
 private:
     std::unordered_map<sf::Keyboard::Key, bool> m_keyPressed;
+    std::unordered_map<sf::Keyboard::Key, bool> m_keyHeld;
     std::unordered_map<sf::Mouse::Button, bool> m_mouseButtonPressed;
+    std::unordered_map<sf::Mouse::Button, bool> m_mouseButtonHeld;
 
     bool m_windowClosed;
     bool m_windowResized;
@@ -38,4 +46,7 @@ private:
 
     sf::Vector2i m_mousePosition;
     float m_mouseWheelDelta;
+    sf::Uint32 m_enteredText;
+
+    bool m_isGUITookInput;
 };

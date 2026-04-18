@@ -11,16 +11,6 @@ Renderer::~Renderer()
     m_sharedContext->graphics->FreeMesh(std::get<0>(m_rectangleMesh), std::get<1>(m_rectangleMesh), std::get<2>(m_rectangleMesh));
 }
 
-void Renderer::BeginGUIRender()
-{
-    glDisable(GL_DEPTH_TEST); //* GUI always draws on top of everything
-}
-
-void Renderer::EndGUIRender()
-{
-    glEnable(GL_DEPTH_TEST);
-}
-
 void Renderer::RenderObjects(const std::vector<std::unique_ptr<Object>>& l_objects, sf::Vector3f l_cameraPosition)
 {
     for (const auto& elem : l_objects)
@@ -67,60 +57,97 @@ void Renderer::RenderObjects(const std::vector<std::unique_ptr<Object>>& l_objec
     }
 }
 
-void Renderer::RenderTextGUI(const std::string& text, GLfloat x, GLfloat y,
-                             GLfloat sx, GLfloat sy, GLfloat scale,
-                             GLfloat colorR, GLfloat colorG, GLfloat colorB, GLfloat alpha)
+void Renderer::RenderWidgets(const std::vector<std::unique_ptr<Widget>>& l_widgets)
 {
-    if (!m_GUIShader)
+    glDisable(GL_DEPTH_TEST); //* GUI always draws on top of everything
+    for (const auto& widget : l_widgets)
     {
-        m_GUIShader = m_sharedContext->shaderManager->Get("GUI.txt");
-    }
-    m_GUIShader->Use();
-    m_GUIShader->SetInt("useTexture", 1);
-    m_GUIShader->SetFloatVec4("colour", colorR, colorG, colorB, alpha);
+        for (const auto& elem : widget->GetMeshes())
+        {
+            if (elem.isVisible == false)
+            {
+                continue;
+            }
+            if (elem.mesh == nullptr)
+            {
+                continue;
+            }
+            if (elem.shader == nullptr)
+            {
+                continue;
+            }
+            MatrixFloat transform;
+            transform.Move(elem.position.x, elem.position.y, 0.0f);
+            transform.ScaleXYZ(elem.scale.x, elem.scale.y, elem.scale.z);
+            elem.shader->Use();
+            elem.shader->SetFloatMatrix("transformMatrix", transform.GetArray());
+            elem.shader->SetFloatVec4("colour", elem.style.colour.x, elem.style.colour.y, elem.style.colour.z, elem.style.alpha);
 
+            elem.shader->SetBool("useTexture", false);
+
+            elem.shader->SetFloatVec4("outlineColour", elem.style.outlineColour.x, elem.style.outlineColour.y, elem.style.outlineColour.z, elem.style.alpha);
+            elem.shader->SetFloat("outlineThickness", elem.style.outlineThickness);
+            elem.shader->SetFloat("cornerRadius", elem.style.cornerRadius);
+            elem.shader->SetFloatVec2("dimensions", elem.dimensions.x, elem.dimensions.y);
+
+            m_sharedContext->graphics->DrawMesh(elem.mesh->VAO, elem.mesh->elementsCount);
+        }
+        for (const auto& elem : widget->GetTexts())
+        {
+            if (elem.isVisible == false)
+            {
+                continue;
+            }
+            if (elem.shader == nullptr)
+            {
+                continue;
+            }
+            elem.shader->Use();
+            elem.shader->SetInt("useTexture", 1);
+            elem.shader->SetFloatVec4("colour", elem.style.colour.x, elem.style.colour.y, elem.style.colour.z, elem.style.alpha);
+
+            GLfloat maxTextHeight = m_sharedContext->graphics->GetMaxTextHeight();
+            GLfloat x             = elem.position.x;
+            std::string::const_iterator c;
+            for (c = elem.text.begin(); c != elem.text.end(); c++)
+            {
+                Character ch = m_sharedContext->graphics->GetCharacter(*c);
+
+                GLfloat w = ch.sizeX * elem.scale / maxTextHeight;
+                GLfloat h = ch.sizeY * elem.scale / maxTextHeight;
+
+                GLfloat xpos = x + ch.bearingLeft * elem.scale / maxTextHeight;
+                GLfloat ypos = elem.position.y - (static_cast<int>(ch.sizeY) - ch.bearingTop) * elem.scale / maxTextHeight;
+
+                MatrixFloat charTransform;
+                charTransform.ScaleX(w);
+                charTransform.ScaleY(h);
+                charTransform.Move(xpos + w / 2.0f, ypos + h / 2.0f, 0.0f);
+
+                elem.shader->SetFloatMatrix("transformMatrix", charTransform.GetArray());
+
+                elem.shader->SetDiffTexture(ch.textureID);
+                m_sharedContext->graphics->DrawMesh(std::get<0>(m_rectangleMesh), std::get<3>(m_rectangleMesh));
+
+                x += (ch.advance >> 6) * elem.scale / maxTextHeight;
+            }
+        }
+    }
+    glEnable(GL_DEPTH_TEST);
+}
+
+sf::Vector2f Renderer::GetTextDimensions(const WidgetText& text)
+{
+    GLfloat x            = 0;
+    GLfloat maxTexHeight = m_sharedContext->graphics->GetMaxTextHeight();
     std::string::const_iterator c;
-    for (c = text.begin(); c != text.end(); c++)
+    for (c = text.text.begin(); c != text.text.end(); c++)
     {
         Character ch = m_sharedContext->graphics->GetCharacter(*c);
 
-        GLfloat w = ch.sizeX * scale * sx;
-        GLfloat h = ch.sizeY * scale * sy;
-
-        GLfloat xpos = x + ch.bearingLeft * scale * sx;
-        GLfloat ypos = y - (static_cast<int>(ch.sizeY) - ch.bearingTop) * scale * sy;
-
-        MatrixFloat charTransform;
-        charTransform.ScaleX(w);
-        charTransform.ScaleY(h);
-        charTransform.Move(xpos + w / 2.0f, ypos + h / 2.0f, 0.0f);
-
-        m_GUIShader->SetFloatMatrix("transformMatrix", charTransform.GetArray());
-
-        m_GUIShader->SetDiffTexture(ch.textureID);
-        m_sharedContext->graphics->DrawMesh(std::get<0>(m_rectangleMesh), std::get<3>(m_rectangleMesh));
-
-        x += (ch.advance >> 6) * scale * sx;
+        x += (ch.advance >> 6) * text.scale / maxTexHeight; // bitshift by 6 to get value in pixels (2^6 = 64)
     }
-}
-
-void Renderer::RenderGUI(GLfloat x, GLfloat y, GLfloat sx, GLfloat sy, GLfloat colorR, GLfloat colorG, GLfloat colorB, GLfloat alpha)
-{
-    if (!m_GUIShader)
-    {
-        m_GUIShader = m_sharedContext->shaderManager->Get("GUI.txt");
-    }
-    m_GUIShader->Use();
-    m_GUIShader->SetInt("useTexture", 0);
-    m_GUIShader->SetFloatVec4("colour", colorR, colorG, colorB, alpha);
-
-    MatrixFloat transform;
-    transform.ScaleX(sx);
-    transform.ScaleY(sy);
-    transform.Move(x, y, 0.0f);
-
-    m_GUIShader->SetFloatMatrix("transformMatrix", transform.GetArray());
-    m_sharedContext->graphics->DrawMesh(std::get<0>(m_rectangleMesh), std::get<3>(m_rectangleMesh));
+    return sf::Vector2f(x, 1.0f);
 }
 
 void Renderer::RenderObjectsPicking(const std::vector<std::unique_ptr<Object>>& l_objects)
@@ -172,7 +199,7 @@ void Renderer::UpdateLightData(Object* l_object, int l_pointLightCount, int l_sp
     }
     else if (m_light.type == LightType::Point)
     {
-        std::string prefix = "pointLights[" + std::to_string(l_pointLightCount) + "].";
+        std::string prefix = "pointLights[" + std::to_string(l_pointLightCount - 1) + "].";
         shader->SetFloatVec3(prefix + "position", m_position.x, m_position.y, m_position.z);
         shader->SetFloat(prefix + "constant", m_light.constant);
         shader->SetFloat(prefix + "linear", m_light.linear);
@@ -183,7 +210,7 @@ void Renderer::UpdateLightData(Object* l_object, int l_pointLightCount, int l_sp
     }
     else if (m_light.type == LightType::Spot)
     {
-        std::string prefix = "spotLight[" + std::to_string(l_spotLightCount) + "].";
+        std::string prefix = "spotLight[" + std::to_string(l_spotLightCount - 1) + "].";
         shader->SetFloatVec3(prefix + "position", m_position.x, m_position.y, m_position.z);
         shader->SetFloatVec3(prefix + "direction", m_light.direction.x, m_light.direction.y, m_light.direction.z);
         shader->SetFloat(prefix + "cutOff", m_light.cutOff);
