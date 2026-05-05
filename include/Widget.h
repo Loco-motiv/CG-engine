@@ -96,7 +96,7 @@ public:
     virtual void OnMouseHold(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse)                         = 0;
     virtual void OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse)                           = 0;
     virtual void OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) = 0;
-    virtual void OnTextEntered(sf::Uint32 l_unicode)                                               = 0;
+    virtual void OnTextEntered(char32_t l_unicode)                                                 = 0;
     void OnWindowResize(const sf::Vector2u& l_windowSize);
     bool IsActive() { return m_isActive; }
 

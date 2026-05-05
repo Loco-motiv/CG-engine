@@ -1,8 +1,9 @@
 #include "Window.h"
 
-Window::Window(const std::string& l_title, const sf::Vector2u& l_size, SharedContext* l_sharedContext) : m_sharedContext(l_sharedContext)
+Window::Window(const std::string& l_title, const sf::Vector2u& l_size, const GLboolean l_isFullscreen, SharedContext* l_sharedContext)
+    : m_sharedContext(l_sharedContext)
 {
-    Setup(l_title, l_size);
+    Setup(l_title, l_size, l_isFullscreen);
 }
 
 Window::~Window()
@@ -10,11 +11,11 @@ Window::~Window()
     Destroy();
 }
 
-void Window::Setup(const std::string& l_title, const sf::Vector2u& l_size)
+void Window::Setup(const std::string& l_title, const sf::Vector2u& l_size, const GLboolean l_isFullscreen)
 {
     m_windowTitle  = l_title;
     m_windowSize   = l_size;
-    m_isFullscreen = false;
+    m_isFullscreen = l_isFullscreen;
     m_isOver       = false;
     Create();
 }
@@ -22,18 +23,18 @@ void Window::Setup(const std::string& l_title, const sf::Vector2u& l_size)
 void Window::Create()
 {
     sf::ContextSettings settings;
-    settings.depthBits         = 32;
+    settings.depthBits         = 24;
     settings.stencilBits       = 8;
-    settings.antialiasingLevel = 8;
+    settings.antiAliasingLevel = 1;                                                      // TODO for path tracing
     settings.majorVersion      = 4;                                                      //* opengl 4.6
     settings.minorVersion      = 6;                                                      //* opengl 4.6
     settings.attributeFlags    = sf::ContextSettings::Core | sf::ContextSettings::Debug; // TODO remove debug
 
-    auto style = (m_isFullscreen ? sf::Style::Fullscreen : sf::Style::Default);
-    m_window.create(sf::VideoMode(m_windowSize.x, m_windowSize.y), m_windowTitle, style, settings);
+    auto style = (m_isFullscreen ? sf::State::Fullscreen : sf::State::Windowed);
+    m_window.create(sf::VideoMode(m_windowSize), m_windowTitle, style, settings);
     m_window.setVerticalSyncEnabled(true); //* frames displaying at monitor refresh rate
 
-    m_window.setActive(true);              //* activate window for opengl rendering
+    (void)m_window.setActive(true);        //* activate window for opengl rendering
 }
 
 void Window::Destroy()
@@ -48,7 +49,7 @@ void Window::Update()
     {
         m_isOver = true;
     }
-    if (m_sharedContext->inputManager->IsKeyReleased(sf::Keyboard::F5))
+    if (m_sharedContext->inputManager->IsKeyReleased(sf::Keyboard::Key::F5))
     {
         ToggleFullscreen();
     }

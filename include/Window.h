@@ -4,13 +4,13 @@
 #include "SharedContext.h"
 
 #include <SFML/Window.hpp>
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <iostream>
 
 class Window
 {
 public:
-    Window(const std::string& l_title, const sf::Vector2u& l_size, SharedContext* l_sharedContext);
+    Window(const std::string& l_title, const sf::Vector2u& l_size, const GLboolean l_isFullscreen, SharedContext* l_sharedContext);
     ~Window();
     void BeginDraw(); //* Clear the window.
     void EndDraw();   //* Display the changes.
@@ -23,7 +23,7 @@ public:
     void SetSize(const sf::Vector2u& l_size);
 
 private:
-    void Setup(const std::string& l_title, const sf::Vector2u& l_size);
+    void Setup(const std::string& l_title, const sf::Vector2u& l_size, const GLboolean l_isFullscreen);
     void Destroy();
     void Create();
 

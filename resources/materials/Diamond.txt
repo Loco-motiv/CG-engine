@@ -1,1 +1,0 @@
-diamond_ore.png diamond_ore_spec.png

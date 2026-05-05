@@ -12,6 +12,44 @@
 
 #include <ranges>
 
+struct PointLightGPU
+{
+    alignas(16) sf::Vector3f position;
+    float constant;
+    float linear;
+    float quadratic;
+    float farPlane;
+    int shadowIndex;
+
+    alignas(16) sf::Vector3f ambient;
+    float padding1;
+    alignas(16) sf::Vector3f diffuse;
+    float padding2;
+    alignas(16) sf::Vector3f specular;
+    float padding3;
+};
+
+struct VertexGPU
+{
+    float px, py, pz, u;
+    float nx, ny, nz, v;
+    float tx, ty, tz;
+    // uint32_t material;
+    float pad;
+};
+
+struct MaterialGPU
+{
+    alignas(16) sf::Vector3f diffColour;
+    float alpha;
+    alignas(16) sf::Vector3f specColour;
+    float shininess;
+    GLuint64 diffuseTex;
+    GLuint64 specularTex;
+    GLuint64 alphaTex;
+    GLuint64 normalTex;
+};
+
 class Renderer
 {
 public:
@@ -93,24 +131,37 @@ public:
                 elem.shader->SetFloatMatrix("transformMatrix", charTransform.GetArray());
 
                 elem.shader->SetDiffTexture(ch.textureID);
-                m_sharedContext->graphics->DrawMesh(std::get<0>(m_rectangleMesh), std::get<3>(m_rectangleMesh));
+                Mesh* quadMesh = m_sharedContext->meshManager->Get("Quad").get();
+                m_sharedContext->graphics->DrawMesh(quadMesh->VAO, quadMesh->elementsCount);
 
                 x += (ch.advance >> 6) * elem.scale / maxTextHeight;
             }
         }
         glEnable(GL_DEPTH_TEST);
     }
+    void RenderObjectsPT(sf::Vector3f cameraPosition, GLfloat FOV, sf::Vector3f forward, sf::Vector3f right, sf::Vector3f up, GLint frameCount);
     sf::Vector2f GetTextDimensions(const WidgetText& text);
     void RenderObjectsPicking(const std::vector<std::unique_ptr<Object>>& l_objects);
     void ReadPickingPixel(GLuint l_x, GLuint l_y);
 
-    void UpdateLightData(Object* l_object, int pointLightCount, int spotLightCount);
+    Shader* SetPTShader(std::string l_name);
+
+    bool UpdateLightData(Object* l_object, int pointLightCount, int spotLightCount);
+    void UpdateLightData(const std::vector<std::unique_ptr<Object>>& l_objects);
 
 private:
     SharedContext* m_sharedContext;
 
-    std::shared_ptr<Shader> m_pickingShader;
-    // std::shared_ptr<Shader> m_GUIShader;
+    GLuint reservoirBuffers[2];
+    GLint currentWriteBuffer = 0;
 
-    std::tuple<GLuint, GLuint, GLuint, GLuint> m_rectangleMesh;
+    std::shared_ptr<Shader> m_pickingShader;
+    std::shared_ptr<Shader> m_shadowShader;
+    std::shared_ptr<Shader> m_ptShader;
+    std::shared_ptr<Shader> m_screenQuadShader;
+
+    sf::Vector3f m_prevCameraPosition;
+    sf::Vector3f m_prevCameraRayBottomLeft;
+    sf::Vector3f m_prevCameraRayRight;
+    sf::Vector3f m_prevCameraRayUp;
 };

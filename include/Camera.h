@@ -30,6 +30,10 @@ public:
     GLfloat GetPitchFactor() const { return m_pitchFactor; }
     GLfloat GetYawFactor() const { return m_yawFactor; }
     GLboolean GetIsYawGlobal() const { return m_isYawGlobal; }
+    sf::Vector3f GetForward() const;
+    sf::Vector3f GetUp() const;
+    sf::Vector3f GetRight() const;
+    GLboolean HasChanges() const { return m_hasChanges; }
 
     void SetFOV(GLfloat l_FOV);
     void SetMovementSpeed(GLfloat l_movementSpeed) { m_movementSpeed = l_movementSpeed; }
@@ -48,9 +52,10 @@ private:
     GLfloat m_FOV;
     GLfloat m_movementSpeed;
     GLfloat m_turnSpeed;
-    GLfloat m_pitchFactor = 0.1;
-    GLfloat m_yawFactor   = 0.05;
-    GLfloat m_isYawGlobal = true;
+    GLfloat m_pitchFactor   = 0.1;
+    GLfloat m_yawFactor     = 0.05;
+    GLboolean m_isYawGlobal = true;
+    GLboolean m_hasChanges  = true;
 
     MatrixFloat m_viewMatrix;
 };

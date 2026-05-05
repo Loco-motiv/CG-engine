@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <numbers>
 
 constexpr GLfloat PI          = std::numbers::pi;

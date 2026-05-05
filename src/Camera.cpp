@@ -41,6 +41,21 @@ GLfloat Camera::GetFOV() const
     return m_FOV;
 }
 
+sf::Vector3f Camera::GetForward() const
+{
+    return sf::Vector3f(-m_viewMatrix[2], -m_viewMatrix[6], -m_viewMatrix[10]);
+}
+
+sf::Vector3f Camera::GetUp() const
+{
+    return sf::Vector3f(m_viewMatrix[1], m_viewMatrix[5], m_viewMatrix[9]);
+}
+
+sf::Vector3f Camera::GetRight() const
+{
+    return sf::Vector3f(m_viewMatrix[0], m_viewMatrix[4], m_viewMatrix[8]);
+}
+
 void Camera::SetFOV(GLfloat l_FOV)
 {
     m_FOV = l_FOV;
@@ -53,28 +68,29 @@ void Camera::ToggleYawGlobal()
 
 void Camera::HandleInput(GLint l_xDelta, GLint l_yDelta)
 {
+    m_hasChanges        = false;
     sf::Vector3f m_move = { 0, 0, 0 };
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W))
     {
         m_move.z += 1;
     }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S))
     {
         m_move.z -= 1;
     }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))
     {
         m_move.x -= 1;
     }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))
     {
         m_move.x += 1;
     }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::R))
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R))
     {
         m_move.y += 1;
     }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::F))
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F))
     {
         m_move.y -= 1;
     }
@@ -84,13 +100,17 @@ void Camera::HandleInput(GLint l_xDelta, GLint l_yDelta)
     m_rotationDelta.y += m_turnSpeed * l_xDelta * m_yawFactor;
     m_rotationDelta.x += m_turnSpeed * l_yDelta * m_pitchFactor;
 
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Z) and !m_isYawGlobal)
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z) and !m_isYawGlobal)
     {
         m_rotationDelta.z -= m_turnSpeed;
     }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::X) and !m_isYawGlobal)
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::X) and !m_isYawGlobal)
     {
         m_rotationDelta.z += m_turnSpeed;
+    }
+    if (std::abs(m_rotationDelta.x) > 1e-6 || std::abs(m_rotationDelta.y) > 1e-6 || std::abs(m_rotationDelta.z) > 1e-6 || std::abs(m_move.x) > 1e-6 || std::abs(m_move.y) > 1e-6 || std::abs(m_move.z) > 1e-6)
+    {
+        m_hasChanges = true;
     }
 
     if (m_isYawGlobal)

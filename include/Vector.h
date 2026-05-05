@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/Window.hpp>
+#include <cmath>
 
 inline float Dot(const sf::Vector3f& lhs, const sf::Vector3f& rhs)
 {

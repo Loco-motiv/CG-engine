@@ -4,7 +4,7 @@
 
 #include <filesystem>
 #include <fstream>
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -20,7 +20,8 @@ public:
 
     Shader();
     Shader(const fs::path& l_path, SharedContext* l_sharedContext);
-    void Create(const GLchar* vertexPath, const GLchar* fragmentPath);
+    void Create(const GLchar* vertexPath, const GLchar* fragmentPath, const GLchar* geometryPath = nullptr);
+    void CreateCompute(const GLchar* computePath);
 
     ~Shader();
 
@@ -42,7 +43,12 @@ public:
 
     void SetDiffTexture(const GLuint diffusive) const;
     void SetSpecTexture(const GLuint specular) const;
+    void SetAlphaTexture(const GLuint alpha) const;
+    void SetNormalTexture(const GLuint normal) const;
+    void SetDepthCubemapTexture(const GLuint depthCubemap) const;
     void SetDiffAndSpecTextures(const GLuint diffusive, const GLuint specular) const;
+
+    void Dispatch(GLuint x, GLuint y, GLuint z = 1) const;
 
 private:
     void CheckCompileErrors(GLuint shader, const std::string& type) const;

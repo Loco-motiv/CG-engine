@@ -21,53 +21,52 @@ void InputManager::HandleInput(sf::Window* l_window)
 
     m_mousePosition = sf::Mouse::getPosition(*l_window);
 
-    sf::Event event;
-    while (l_window->pollEvent(event))
+    while (const std::optional event = l_window->pollEvent())
     {
-        if (event.type == sf::Event::Closed)
+        if (event->is<sf::Event::Closed>())
         {
             m_windowClosed = true;
         }
-        else if (event.type == sf::Event::Resized)
+        else if (const auto* resized = event->getIf<sf::Event::Resized>())
         {
             m_windowResized = true;
-            m_windowSize    = sf::Vector2u(event.size.width, event.size.height);
+            m_windowSize    = resized->size;
         }
-        else if (event.type == sf::Event::GainedFocus)
+        else if (event->is<sf::Event::FocusGained>())
         {
             m_hasFocus = true;
         }
-        else if (event.type == sf::Event::LostFocus)
+        else if (event->is<sf::Event::FocusLost>())
         {
             m_hasFocus = false;
         }
-        else if (event.type == sf::Event::MouseWheelScrolled)
+        else if (const auto* scroll = event->getIf<sf::Event::MouseWheelScrolled>())
         {
-            m_mouseWheelDelta = event.mouseWheelScroll.delta;
+            m_mouseWheelDelta = scroll->delta;
         }
-        else if (event.type == sf::Event::KeyPressed)
+        else if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
-            m_keyPressed[event.key.code] = true;
-            m_keyHeld[event.key.code]    = true;
+            m_keyPressed[keyPressed->code] = true;
+            m_keyHeld[keyPressed->code]    = true;
         }
-        else if (event.type == sf::Event::KeyReleased)
+        else if (const auto* keyReleased = event->getIf<sf::Event::KeyReleased>())
         {
-            m_keyPressed[event.key.code] = false;
-            m_keyHeld[event.key.code]    = false;
+            m_keyPressed[keyReleased->code] = false;
+            m_keyHeld[keyReleased->code]    = false;
         }
-        else if (event.type == sf::Event::MouseButtonPressed)
+        else if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
         {
-            m_mouseButtonPressed[event.mouseButton.button] = true;
-            m_mouseButtonHeld[event.mouseButton.button]    = true;
+            m_mouseButtonPressed[mousePressed->button] = true;
+            m_mouseButtonHeld[mousePressed->button]    = true;
         }
-        else if (event.type == sf::Event::MouseButtonReleased)
+        else if (const auto* mouseReleased = event->getIf<sf::Event::MouseButtonReleased>())
         {
-            m_mouseButtonPressed[event.mouseButton.button] = false;
-            m_mouseButtonHeld[event.mouseButton.button]    = false;
+            m_mouseButtonPressed[mouseReleased->button] = false;
+            m_mouseButtonHeld[mouseReleased->button]    = false;
         }
-        else if (event.type == sf::Event::TextEntered)
+        else if (const auto* text = event->getIf<sf::Event::TextEntered>())
         {
-            m_enteredText = event.text.unicode;
+            m_enteredText = text->unicode;
         }
     }
 }
@@ -107,7 +106,7 @@ bool InputManager::HasFocus() const
     return m_hasFocus;
 }
 
-sf::Uint32 InputManager::GetEnteredText() const
+char32_t InputManager::GetEnteredText() const
 {
     return m_enteredText;
 }

@@ -1,0 +1,385 @@
+#version 460 core
+#extension GL_ARB_bindless_texture : require
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(rgba32f, binding = 0) uniform image2D imgOutput;
+
+uniform vec3 cameraPosition;
+uniform vec3 cameraRayBottomLeft;
+uniform vec3 cameraRayRight;
+uniform vec3 cameraRayUp;
+
+uniform bool enableFrameMix = true;
+
+uniform int frameCount = 0;
+uniform int maxBounces = 2;
+
+struct BVHNode {
+    vec3 minData;
+    uint  leftFirst;
+    vec3 maxData;
+    uint  triCount;
+};
+
+struct Vertex {
+    vec3 pos;
+    float u;
+    vec3 norm;
+    float v;
+    vec3 tang;
+    float pad;
+};
+
+struct Material {
+    vec3 diffColour;
+    float alpha;
+    vec3 specColour;
+    float shininess;
+    uvec2 diffuseTex;
+    uvec2 specularTex;
+    uvec2 alphaTex;
+    uvec2 normalTex;
+};
+
+struct Ray {
+    vec3 origin;
+    vec3 dir;
+    vec3 invDir;
+};
+
+struct HitInfo {
+    float t;
+    vec2 barycentric;
+    uint triIndex;
+    bool hit;
+};  
+
+layout(std430, binding = 1) readonly buffer BVHNodeBuffer {
+    BVHNode bvhNodes[];
+};
+
+layout(std430, binding = 2) readonly buffer VertexBuffer {
+    Vertex vertices[];
+};
+
+layout(std430, binding = 3) readonly buffer TriMaterialBuffer {
+    uint triMaterials[];
+};
+
+layout(std430, binding = 4) readonly buffer MaterialBuffer {
+    Material materials[];
+};
+
+const float PI = 3.14159265359;
+const vec3 DIR_LIGHT_DIR = normalize(vec3(0.05, 1.0, 0.05));
+const vec3 DIR_LIGHT_COLOR = vec3(5.0, 4.2, 3.0) * 0.4;
+
+uint pcgHash(inout uint state) {
+    state = state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+float rand(inout uint state) {
+    return float(pcgHash(state)) * 2.3283064365386963e-10; 
+}
+
+vec3 safeInvDir(vec3 d) {
+    vec3 d_safe = d + vec3(equal(d, vec3(0.0))) * 1e-8;
+    return 1.0 / d_safe;
+}
+
+vec3 RandomCosineDirection(inout uint state, vec3 normal) {
+    float r1 = rand(state);
+    float r2 = rand(state);
+    float z = sqrt(max(1.0 - r2, 0.0));
+    float phi = 2.0 * PI * r1;
+    float sqrtR2 = sqrt(r2);
+    float x = cos(phi) * sqrtR2;
+    float y = sin(phi) * sqrtR2;
+
+    float sign_z = normal.z >= 0.0 ? 1.0 : -1.0;
+    float a = -1.0 / (sign_z + normal.z);
+    float b = normal.x * normal.y * a;
+    vec3 tangent = vec3(1.0 + sign_z * normal.x * normal.x * a, sign_z * b, -sign_z * normal.x);
+    vec3 bitangent = vec3(b, sign_z + normal.y * normal.y * a, -normal.y);
+
+    return tangent * x + bitangent * y + normal * z;
+}
+
+float IntersectAABB(Ray ray, vec3 boxMin, vec3 boxMax, float maxT) {
+    vec3 t0 = (boxMin - ray.origin) * ray.invDir;
+    vec3 t1 = (boxMax - ray.origin) * ray.invDir;
+
+    vec3 tmin = min(t0, t1);
+    vec3 tmax = max(t0, t1);
+
+    float tNear = max(max(tmin.x, tmin.y), tmin.z);
+    float tFar = min(min(tmax.x, tmax.y), tmax.z);
+
+    if (tNear <= tFar && tFar > 0.0 && tNear < maxT) {
+        return max(tNear, 0.0);
+    }
+    return 1e30;
+}
+
+bool IntersectTriangle(Ray ray, uint triIdx, out float outT, out vec2 outBary) {
+    vec3 v0 = vertices[triIdx * 3 + 0].pos;
+    vec3 v1 = vertices[triIdx * 3 + 1].pos;
+    vec3 v2 = vertices[triIdx * 3 + 2].pos;
+
+    vec3 e1 = v1 - v0;
+    vec3 e2 = v2 - v0;
+    vec3 h = cross(ray.dir, e2);
+    float a = dot(e1, h);
+
+    if (abs(a) < 0.000001) return false;
+
+    float f = 1.0 / a;
+    vec3 s = ray.origin - v0;
+    float u = f * dot(s, h);
+    if (u < 0.0 || u > 1.0) return false;
+
+    vec3 q = cross(s, e1);
+    float v = f * dot(ray.dir, q);
+    if (v < 0.0 || u + v > 1.0) return false;
+
+    float t = f * dot(e2, q);
+    if (t > 0.0001) {
+        outT = t;
+        outBary = vec2(u, v);
+        return true;
+    }
+    return false;
+}
+
+HitInfo TraverseBVH(Ray ray) {
+    HitInfo closestHit;
+    closestHit.hit = false;
+    closestHit.t = 1e30;
+    closestHit.triIndex = 0;
+
+    uint stack[10];
+    uint stackPtr = 0;
+    stack[stackPtr++] = 0;
+
+    while (stackPtr > 0) {
+        uint nodeIdx = stack[--stackPtr];
+        BVHNode node = bvhNodes[nodeIdx];
+        if (node.triCount > 0) {
+            for (uint i = 0; i < node.triCount; ++i) {
+                uint triIdx = node.leftFirst + i;
+                float t; vec2 bary;
+                if (IntersectTriangle(ray, triIdx, t, bary)) {
+                    if (t < closestHit.t) {
+                        closestHit.t = t;
+                        closestHit.barycentric = bary;
+                        closestHit.triIndex = triIdx;
+                        closestHit.hit = true;
+                    }
+                }
+            }
+        } else {
+            uint leftIdx = node.leftFirst;
+            uint rightIdx = node.leftFirst + 1;
+
+            float tLeft = IntersectAABB(ray, bvhNodes[leftIdx].minData, bvhNodes[leftIdx].maxData, closestHit.t);
+            float tRight = IntersectAABB(ray, bvhNodes[rightIdx].minData, bvhNodes[rightIdx].maxData, closestHit.t);
+
+            if (tLeft > tRight) {
+                if (tLeft < closestHit.t) stack[stackPtr++] = leftIdx;
+                if (tRight < closestHit.t) stack[stackPtr++] = rightIdx;
+            } else {
+                if (tRight < closestHit.t) stack[stackPtr++] = rightIdx;
+                if (tLeft < closestHit.t) stack[stackPtr++] = leftIdx;
+            }
+        }
+    }
+    return closestHit;
+}
+
+bool IsShadowed(vec3 origin, vec3 dir, float maxDist) {
+    Ray ray;
+    ray.origin = origin;
+    ray.dir = dir;
+    ray.invDir = safeInvDir(dir);
+
+    uint stack[16];
+    uint stackPtr = 0;
+    stack[stackPtr++] = 0;
+
+    while (stackPtr > 0) {
+        uint nodeIdx = stack[--stackPtr];
+        BVHNode node = bvhNodes[nodeIdx];
+        if (node.triCount > 0) {
+            for (uint i = 0; i < node.triCount; ++i) {
+                uint triIdx = node.leftFirst + i;
+                float t; vec2 bary;
+                if (IntersectTriangle(ray, triIdx, t, bary) && t < maxDist) {
+                    uint matIdx = triMaterials[triIdx];
+                    Material mat = materials[matIdx];
+
+                    if (mat.alphaTex.x == 0) {
+                        return true;
+                    }
+
+                    Vertex v0 = vertices[triIdx * 3 + 0];
+                    Vertex v1 = vertices[triIdx * 3 + 1];
+                    Vertex v2 = vertices[triIdx * 3 + 2];
+                    float w = 1.0 - bary.x - bary.y;
+                    vec2 uv = vec2(v0.u, v0.v) * w + vec2(v1.u, v1.v) * bary.x + vec2(v2.u, v2.v) * bary.y;
+
+                    float alpha = mat.alpha;
+                    if (mat.alphaTex.x != 0) alpha *= textureLod(sampler2D(mat.alphaTex), uv, 0.0).a;
+                    if (alpha > 0.01) return true; 
+                }
+            }
+        } else {
+            uint leftIdx = node.leftFirst;
+            uint rightIdx = node.leftFirst + 1;
+
+            float tLeft = IntersectAABB(ray, bvhNodes[leftIdx].minData, bvhNodes[leftIdx].maxData, maxDist);
+            float tRight = IntersectAABB(ray, bvhNodes[rightIdx].minData, bvhNodes[rightIdx].maxData, maxDist);
+
+            if (tLeft < maxDist) stack[stackPtr++] = leftIdx;
+            if (tRight < maxDist) stack[stackPtr++] = rightIdx;
+        }
+    }
+    return false;
+}
+
+void main() {
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 imgSize = imageSize(imgOutput);
+    if (pixelCoords.x >= imgSize.x || pixelCoords.y >= imgSize.y) return;
+
+    uint seed = uint(pixelCoords.x) * uint(1973) + uint(pixelCoords.y) * uint(9277) + uint(frameCount) * uint(26699);
+    pcgHash(seed);
+
+    vec2 jitter = vec2(rand(seed), rand(seed)) - 0.5;
+    vec2 uv = vec2(
+        (float(pixelCoords.x) + jitter.x) / float(imgSize.x),
+        1.0 - ((float(pixelCoords.y) + jitter.y) / float(imgSize.y))
+    );
+
+    Ray ray;
+    ray.origin = cameraPosition;
+    ray.dir = normalize(cameraRayBottomLeft + uv.x * cameraRayRight + uv.y * cameraRayUp);
+    ray.invDir = safeInvDir(ray.dir);
+
+    vec3 radiance = vec3(0.0);
+    vec3 throughput = vec3(1.0);
+    int transparentBounces = 0;
+
+    for (int bounce = 0; bounce < maxBounces; ++bounce) {
+        HitInfo hit = TraverseBVH(ray);
+
+        if (!hit.hit) {
+            float t = clamp(ray.dir.y, 0.0, 1.0); 
+
+            vec3 zenithColor = vec3(1.0, 0.9, 0.5);
+            vec3 horizonColor = vec3(1.0, 0.6, 0.2);
+
+            vec3 skyColor = mix(horizonColor, zenithColor, t);
+
+            float sunIntensity = pow(max(dot(ray.dir, DIR_LIGHT_DIR), 0.0), 64.0);
+            skyColor += vec3(10.0, 8.0, 3.0) * sunIntensity; 
+
+            radiance += throughput * skyColor;
+            break;
+        }
+
+        uint matIdx = triMaterials[hit.triIndex];
+        Material mat = materials[matIdx];
+
+        Vertex v0 = vertices[hit.triIndex * 3 + 0];
+        Vertex v1 = vertices[hit.triIndex * 3 + 1];
+        Vertex v2 = vertices[hit.triIndex * 3 + 2];
+
+        float w = 1.0 - hit.barycentric.x - hit.barycentric.y;
+        float u = hit.barycentric.x;
+        float v = hit.barycentric.y;
+
+        vec2 texCoord = vec2(v0.u, v0.v) * w + vec2(v1.u, v1.v) * u + vec2(v2.u, v2.v) * v;
+        vec3 normal = normalize(v0.norm * w + v1.norm * u + v2.norm * v);
+        vec3 tangent = normalize(v0.tang * w + v1.tang * u + v2.tang * v);
+        vec3 hitPos = ray.origin + ray.dir * hit.t;
+
+        float currentAlpha = mat.alpha;
+        vec3 albedo =  textureLod(sampler2D(mat.diffuseTex), texCoord, 0.0).rgb;
+        vec3 specColor = textureLod(sampler2D(mat.specularTex), texCoord, 0.0).rgb;
+        if (mat.alphaTex.x != 0 || mat.alphaTex.y != 0) {
+            currentAlpha *= textureLod(sampler2D(mat.alphaTex), texCoord, 0.0).a;
+        }
+
+        if (rand(seed) > currentAlpha) {
+            ray.origin = hitPos + ray.dir * 0.001;
+            bounce--;
+            transparentBounces++;
+            if (transparentBounces > 8) break;
+            continue;
+        }
+
+        if (dot(normal, ray.dir) > 0.0) {
+            normal = -normal;
+            tangent = -tangent;
+        }
+
+        if (mat.normalTex.x != 0 || mat.normalTex.y != 0) {
+            vec3 t = tangent - dot(tangent, normal) * normal;
+            float lenSqr = dot(t, t);
+            if (length(t) > 1e-5) {
+                tangent = normalize(t);
+                tangent = t * inversesqrt(lenSqr);
+                vec3 bitangent = cross(normal, tangent);
+                mat3 TBN = mat3(tangent, bitangent, normal);
+                vec3 mapNormal = textureLod(sampler2D(mat.normalTex), texCoord, 0.0).xyz * 2.0 - 1.0;
+                normal = normalize(TBN * mapNormal);
+            }
+        }
+
+        albedo *= mat.diffColour;
+        specColor *= mat.specColour; 
+
+        float diffLuma = dot(albedo, vec3(0.299, 0.587, 0.114));
+        float specLuma = dot(specColor, vec3(0.299, 0.587, 0.114));
+        float specProb = specLuma / max(specLuma + diffLuma, 0.0001);
+
+        if (!IsShadowed(hitPos + normal * 0.01, DIR_LIGHT_DIR, 1e30)) {
+            float ndotl = max(dot(normal, DIR_LIGHT_DIR), 0.0);
+            radiance += throughput * albedo * DIR_LIGHT_COLOR * ndotl / PI;
+        }
+
+        if (rand(seed) < specProb) {
+            float roughness = clamp(1.0 - (mat.shininess / 128.0), 0.0, 1.0);
+            vec3 reflected = reflect(ray.dir, normal);
+            vec3 jitterDir = RandomCosineDirection(seed, reflected) * roughness;
+
+            ray.dir = normalize(reflected + jitterDir);
+            throughput *= specColor / max(specProb, 0.001);
+        } else {
+            ray.dir = RandomCosineDirection(seed, normal);
+            throughput *= albedo / max(1.0 - specProb, 0.001);
+        } 
+
+        ray.origin = hitPos + normal * 0.001;
+        ray.invDir = safeInvDir(ray.dir);
+        float p = clamp(max(throughput.r, max(throughput.g, throughput.b)), 0.05, 0.95);
+
+        if (bounce > 2) {
+            if (rand(seed) > p) break;
+            throughput *= 1.0 / p;
+        }
+    }
+
+    vec3 newColor = radiance;
+    if (any(isnan(newColor)) || any(isinf(newColor))) {
+        newColor = vec3(0.0);
+    }
+    if (frameCount > 0 && enableFrameMix) {
+        vec3 prevColor = imageLoad(imgOutput, pixelCoords).rgb;
+        newColor = mix(prevColor, newColor, 1.0 / float(frameCount + 1));
+        // newColor = max(prevColor, newColor);
+    }
+    imageStore(imgOutput, pixelCoords, vec4(newColor, 1.0));
+}

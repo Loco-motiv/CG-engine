@@ -41,8 +41,12 @@ public:
         auto path = m_paths.find(name);
         if (path == m_paths.end())
         {
-            return nullptr;
+            if (name == "null")
+            {
+                return nullptr;
+            }
             std::cout << "ERROR::RESOURSE_PATH: " << name << " not found" << '\n';
+            return nullptr;
         }
 
         std::shared_ptr<T> resourse = static_cast<Derived*>(this)->Load(path->second);
@@ -62,19 +66,10 @@ public:
 
     std::vector<std::string> GetNames()
     {
-        std::vector<std::string> names;
-
-        for (auto const& [key, val] : m_paths)
-        {
-            names.push_back(key);
-        }
-
-        for (auto const& [key, val] : m_preLoadedResources)
-        {
-            names.push_back(key);
-        }
-        return names;
+        return m_names;
     }
+
+    std::string GetDirectory() const { return m_resourceDirectory.string(); }
 
     void AddPath(std::string_view l_name, const fs::path& l_path)
     {
@@ -96,6 +91,9 @@ protected:
     std::map<std::string, std::weak_ptr<T>> m_resources;
     std::map<std::string, std::shared_ptr<T>> m_preLoadedResources;
     std::map<std::string, fs::path> m_paths;
+    std::vector<std::string> m_names;
+
+    fs::path m_resourceDirectory;
 
 private:
     void LoadPaths()
@@ -111,12 +109,5 @@ private:
         {
             m_paths[file.path().filename().string()] = file.path();
         }
-
-        for (auto file : m_paths)
-        {
-            std::cout << file.first << " " << file.second << '\n';
-        }
     }
-
-    fs::path m_resourceDirectory;
 };

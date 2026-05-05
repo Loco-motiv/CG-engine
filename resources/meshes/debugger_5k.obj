@@ -9,7 +9,7 @@
 # Faces: 5000
 #
 ####
-#mtllib debugger_5k.obj.mtl
+mtllib Debugger_5k.obj.mtl
 
 vn 0.203061 -3.079579 5.166656
 v -0.298337 -0.173233 18.773956
@@ -5044,7 +5044,7 @@ v -10.204448 -23.911907 -1.929724
 # 2515 vertices, 0 vertices normals
 
 
-#usemtl material_0
+usemtl material_0
 vt 0.870014 0.378143
 vt 0.869809 0.383760
 vt 0.856398 0.377822

@@ -20,7 +20,7 @@ public:
 
     bool HasFocus() const;
 
-    sf::Uint32 GetEnteredText() const;
+    char32_t GetEnteredText() const;
     float GetMouseWheelDelta() const;
 
     sf::Vector2i GetMousePosition() const;
@@ -46,7 +46,7 @@ private:
 
     sf::Vector2i m_mousePosition;
     float m_mouseWheelDelta;
-    sf::Uint32 m_enteredText;
+    char32_t m_enteredText;
 
     bool m_isGUITookInput;
 };

@@ -1,0 +1,8 @@
+newmtl material0
+illum 4
+Kd 0.80 0.80 0.80
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+map_Kd grid512.png
+Ni 1.00
+Ks 1.00 1.00 1.00

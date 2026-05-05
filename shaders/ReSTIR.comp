@@ -1,0 +1,525 @@
+#version 460 core
+#extension GL_ARB_bindless_texture : require
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(rgba32f, binding = 0) uniform image2D imgOutput;
+
+// Parameters
+const uint  TEMPORAL_MAX_M            = 60u;   
+const uint  SPATIAL_MAX_M             = 500u;  
+const int   SPATIAL_TAPS_HIGH         = 9;     
+const int   SPATIAL_TAPS_LOW          = 3;     
+const float SPATIAL_BASE_RADIUS       = 10.0; 
+const float SPATIAL_WEIGHT_CLAMP      = 20.0;   
+const float GEOMETRY_DEPTH_THRESHOLD  = 0.1;   
+const float GEOMETRY_NORMAL_THRESHOLD = 0.906; 
+
+uniform vec3 cameraPosition;
+uniform vec3 cameraRayBottomLeft;
+uniform vec3 cameraRayRight;
+uniform vec3 cameraRayUp;
+
+uniform vec3 prevCameraPosition;
+uniform vec3 prevCameraRayBottomLeft;
+uniform vec3 prevCameraRayRight;
+uniform vec3 prevCameraRayUp;
+
+uniform bool enableTemporalReuse = true;
+uniform bool enableSpatialReuse = true;
+uniform bool enableFrameMix = true;
+
+uniform int frameCount = 0;
+uniform int maxBounces = 2;
+
+struct BVHNode { vec3 minData; uint leftFirst; vec3 maxData; uint triCount; };
+struct Vertex { vec3 pos; float u; vec3 norm; float v; vec3 tang; float pad; };
+struct Material {
+    vec3 diffColour; float alpha;
+    vec3 specColour; float shininess;
+    uvec2 diffuseTex; uvec2 specularTex;
+    uvec2 alphaTex; uvec2 normalTex;
+};
+
+struct Ray { vec3 origin; vec3 dir; vec3 invDir; };
+struct HitInfo { float t; vec2 barycentric; uint triIndex; bool hit; };
+
+struct GISample { vec3 xv; vec3 nv; vec3 xs; vec3 ns; vec3 L_o; };
+struct Reservoir { GISample s; float w_sum; float W; uint M; };
+
+struct PackedReservoir {
+    vec4 data0; // xs.xyz, packNormal(nv)
+    vec4 data1; // xv.xyz, M
+    vec4 data2; // L_o.xyz, W
+    vec4 data3; // ns.xyz, w_sum
+};
+
+layout(std430, binding = 1) readonly buffer BVHNodeBuffer { BVHNode bvhNodes[]; };
+layout(std430, binding = 2) readonly buffer VertexBuffer { Vertex vertices[]; };
+layout(std430, binding = 3) readonly buffer TriMaterialBuffer { uint triMaterials[]; };
+layout(std430, binding = 4) readonly buffer MaterialBuffer { Material materials[]; };
+
+layout(std430, binding = 5) readonly buffer PrevReservoirBuffer { PackedReservoir prevReservoirs[]; };
+layout(std430, binding = 6) writeonly buffer CurrReservoirBuffer { PackedReservoir currReservoirs[]; };
+
+const float PI = 3.14159265359;
+const vec3 DIR_LIGHT_DIR = normalize(vec3(0.05, 1.0, 0.05));
+const vec3 DIR_LIGHT_COLOR = vec3(5.0, 4.2, 3.0) * 0.4;
+
+uint pcgHash(inout uint state) {
+    state = state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+float rand(inout uint state) { return float(pcgHash(state)) * 2.3283064365386963e-10; }
+float Luminance(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+vec3 safeInvDir(vec3 d) { return 1.0 / (d + vec3(equal(d, vec3(0.0))) * 1e-8); }
+
+vec3 RandomCosineDirection(inout uint state, vec3 normal) {
+    float r1 = rand(state); float r2 = rand(state); float z = sqrt(max(1.0 - r2, 0.0));
+    float phi = 2.0 * PI * r1; float sqrtR2 = sqrt(r2); 
+    float x = cos(phi) * sqrtR2; float y = sin(phi) * sqrtR2;
+    float sign_z = normal.z >= 0.0 ? 1.0 : -1.0; float a = -1.0 / (sign_z + normal.z);
+    float b = normal.x * normal.y * a;
+    vec3 tangent = vec3(1.0 + sign_z * normal.x * normal.x * a, sign_z * b, -sign_z * normal.x);
+    vec3 bitangent = vec3(b, sign_z + normal.y * normal.y * a, -normal.y);
+    return tangent * x + bitangent * y + normal * z;
+}
+
+// Memory packing
+vec2 signNotZero(vec2 v) { return vec2((v.x >= 0.0) ? 1.0 : -1.0, (v.y >= 0.0) ? 1.0 : -1.0); }
+vec2 float32x3_to_oct(in vec3 v) {
+    vec2 p = v.xy * (1.0 / (abs(v.x) + abs(v.y) + abs(v.z)));
+    return (v.z <= 0.0) ? ((1.0 - abs(p.yx)) * signNotZero(p)) : p;
+}
+vec3 oct_to_float32x3(vec2 e) {
+    vec3 v = vec3(e.xy, 1.0 - abs(e.x) - abs(e.y));
+    if (v.z < 0.0) v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy);
+    return normalize(v);
+}
+uint packNormal(vec3 n) { return packSnorm2x16(float32x3_to_oct(n)); }
+vec3 unpackNormal(uint p) { return oct_to_float32x3(unpackSnorm2x16(p)); }
+
+PackedReservoir PackReservoir(Reservoir r) {
+    PackedReservoir p;
+    p.data0 = vec4(r.s.xs, uintBitsToFloat(packNormal(r.s.nv)));
+    p.data1 = vec4(r.s.xv, uintBitsToFloat(r.M));
+    p.data2 = vec4(r.s.L_o, r.W);
+    p.data3 = vec4(r.s.ns, r.w_sum);
+    return p;
+}
+Reservoir UnpackReservoir(PackedReservoir p) {
+    Reservoir r;
+    r.s.xs = p.data0.xyz; 
+    r.s.nv = unpackNormal(floatBitsToUint(p.data0.w));
+    r.s.xv = p.data1.xyz; 
+    r.M = floatBitsToUint(p.data1.w);
+    r.s.L_o = p.data2.xyz; 
+    r.W = p.data2.w;
+    r.s.ns = p.data3.xyz; 
+    r.w_sum = p.data3.w;
+    return r;
+}
+
+// Core
+
+float IntersectAABB(Ray ray, vec3 boxMin, vec3 boxMax, float maxT) {
+    vec3 t0 = (boxMin - ray.origin) * ray.invDir; vec3 t1 = (boxMax - ray.origin) * ray.invDir;
+    vec3 tmin = min(t0, t1); vec3 tmax = max(t0, t1);
+    float tNear = max(max(tmin.x, tmin.y), tmin.z); float tFar = min(min(tmax.x, tmax.y), tmax.z);
+    if (tNear <= tFar && tFar > 0.0 && tNear < maxT) return max(tNear, 0.0);
+    return 1e30;
+}
+
+bool IntersectTriangle(Ray ray, uint triIdx, out float outT, out vec2 outBary) {
+    vec3 v0 = vertices[triIdx * 3 + 0].pos; vec3 v1 = vertices[triIdx * 3 + 1].pos; vec3 v2 = vertices[triIdx * 3 + 2].pos;
+    vec3 e1 = v1 - v0; vec3 e2 = v2 - v0; vec3 h = cross(ray.dir, e2); float a = dot(e1, h);
+    if (abs(a) < 0.000001) return false; float f = 1.0 / a; vec3 s = ray.origin - v0; float u = f * dot(s, h);
+    if (u < 0.0 || u > 1.0) return false; vec3 q = cross(s, e1); float v = f * dot(ray.dir, q);
+    if (v < 0.0 || u + v > 1.0) return false; float t = f * dot(e2, q);
+    if (t > 0.0001) { outT = t; outBary = vec2(u, v); return true; }
+    return false;
+}
+
+HitInfo TraverseBVH(Ray ray) {
+    HitInfo closestHit; closestHit.hit = false; closestHit.t = 1e30; closestHit.triIndex = 0;
+    uint stack[8]; uint stackPtr = 0; stack[stackPtr++] = 0;
+    while (stackPtr > 0) {
+        uint nodeIdx = stack[--stackPtr]; BVHNode node = bvhNodes[nodeIdx];
+        if (node.triCount > 0) {
+            for (uint i = 0; i < node.triCount; ++i) {
+                uint triIdx = node.leftFirst + i; float t; vec2 bary;
+                if (IntersectTriangle(ray, triIdx, t, bary)) {
+                    if (t < closestHit.t) { closestHit.t = t; closestHit.barycentric = bary; closestHit.triIndex = triIdx; closestHit.hit = true; }
+                }
+            }
+        } else {
+            uint leftIdx = node.leftFirst; uint rightIdx = node.leftFirst + 1;
+            float tLeft = IntersectAABB(ray, bvhNodes[leftIdx].minData, bvhNodes[leftIdx].maxData, closestHit.t);
+            float tRight = IntersectAABB(ray, bvhNodes[rightIdx].minData, bvhNodes[rightIdx].maxData, closestHit.t);
+            if (tLeft > tRight) {
+                if (tLeft < closestHit.t) stack[stackPtr++] = leftIdx;
+                if (tRight < closestHit.t) stack[stackPtr++] = rightIdx;
+            } else {
+                if (tRight < closestHit.t) stack[stackPtr++] = rightIdx;
+                if (tLeft < closestHit.t) stack[stackPtr++] = leftIdx;
+            }
+        }
+    } return closestHit;
+}
+
+bool IsShadowed(vec3 origin, vec3 dir, float maxDist) {
+    Ray ray; ray.origin = origin; ray.dir = dir; ray.invDir = safeInvDir(dir);
+    uint stack[16]; uint stackPtr = 0; stack[stackPtr++] = 0;
+    while (stackPtr > 0) {
+        uint nodeIdx = stack[--stackPtr]; BVHNode node = bvhNodes[nodeIdx];
+        if (node.triCount > 0) {
+            for (uint i = 0; i < node.triCount; ++i) {
+                uint triIdx = node.leftFirst + i; float t; vec2 bary;
+                if (IntersectTriangle(ray, triIdx, t, bary) && t < maxDist) {
+                    Material mat = materials[triMaterials[triIdx]];
+                    if (mat.alphaTex.x == 0 && mat.alphaTex.y == 0) return true;
+                    Vertex v0 = vertices[triIdx * 3 + 0]; Vertex v1 = vertices[triIdx * 3 + 1]; Vertex v2 = vertices[triIdx * 3 + 2];
+                    float w = 1.0 - bary.x - bary.y; vec2 uv = vec2(v0.u, v0.v) * w + vec2(v1.u, v1.v) * bary.x + vec2(v2.u, v2.v) * bary.y;
+                    if ((mat.alpha * textureLod(sampler2D(mat.alphaTex), uv, 0.0).a) > 0.01) return true; 
+                }
+            }
+        } else {
+            float tLeft = IntersectAABB(ray, bvhNodes[node.leftFirst].minData, bvhNodes[node.leftFirst].maxData, maxDist);
+            float tRight = IntersectAABB(ray, bvhNodes[node.leftFirst + 1].minData, bvhNodes[node.leftFirst + 1].maxData, maxDist);
+            if (tLeft < maxDist) stack[stackPtr++] = node.leftFirst;
+            if (tRight < maxDist) stack[stackPtr++] = node.leftFirst + 1;
+        }
+    } return false;
+}
+
+void GetHitAttributes(HitInfo hit, Ray ray, bool isPrimary, out vec3 hitPos, out vec3 normal, out vec3 albedo, out vec3 specColor, out float roughness, out float alpha) {
+    Material mat = materials[triMaterials[hit.triIndex]]; 
+    Vertex v0 = vertices[hit.triIndex * 3 + 0]; Vertex v1 = vertices[hit.triIndex * 3 + 1]; Vertex v2 = vertices[hit.triIndex * 3 + 2];
+    
+    float w = 1.0 - hit.barycentric.x - hit.barycentric.y;
+    vec2 texCoord = vec2(v0.u, v0.v) * w + vec2(v1.u, v1.v) * hit.barycentric.x + vec2(v2.u, v2.v) * hit.barycentric.y;
+    normal = normalize(v0.norm * w + v1.norm * hit.barycentric.x + v2.norm * hit.barycentric.y);
+    vec3 tangent = normalize(v0.tang * w + v1.tang * hit.barycentric.x + v2.tang * hit.barycentric.y);
+    hitPos = ray.origin + ray.dir * hit.t;
+
+    alpha = mat.alpha; albedo = mat.diffColour; specColor = mat.specColour;
+
+    if (mat.diffuseTex.x != 0 || mat.diffuseTex.y != 0) albedo *= textureLod(sampler2D(mat.diffuseTex), texCoord, 0.0).rgb;
+    if (mat.alphaTex.x != 0 || mat.alphaTex.y != 0) alpha *= textureLod(sampler2D(mat.alphaTex), texCoord, 0.0).a;
+    
+    if (dot(normal, ray.dir) > 0.0) { normal = -normal; tangent = -tangent; }
+
+    if (isPrimary) {
+        if (mat.specularTex.x != 0 || mat.specularTex.y != 0) specColor *= textureLod(sampler2D(mat.specularTex), texCoord, 0.0).rgb;
+        if (mat.normalTex.x != 0 || mat.normalTex.y != 0) {
+            vec3 t = tangent - dot(tangent, normal) * normal;
+            if (length(t) > 1e-5) {
+                tangent = normalize(t);
+                vec3 mapNormal = textureLod(sampler2D(mat.normalTex), texCoord, 0.0).xyz * 2.0 - 1.0;
+                normal = normalize(mat3(tangent, cross(normal, tangent), normal) * mapNormal);
+            }
+        }
+    }
+    roughness = clamp(1.0 - (mat.shininess / 128.0), 0.05, 1.0);
+}
+
+vec3 GetSkyColor(vec3 dir) {
+    return vec3(1.0, 0.6, 0.2);
+}
+
+// BRDF & Target Eval
+
+vec3 EvaluateBRDF(vec3 viewDir, vec3 lightDir, vec3 normal, vec3 albedo, vec3 specColor, float roughness) {
+    float ndotl = max(dot(normal, lightDir), 0.0);
+    if (ndotl <= 0.0) return vec3(0.0);
+
+    vec3 diffuse = albedo / PI; 
+    vec3 h = normalize(viewDir + lightDir); 
+    float ndoth = max(dot(normal, h), 0.0);
+    
+    float specPower = exp2(13.0 * (1.0 - roughness)); 
+    vec3 specular = specColor * pow(ndoth, specPower) * (specPower + 2.0) / (2.0 * PI);
+
+    return (diffuse + specular) * ndotl;
+}
+
+float GetJacobian(GISample s, vec3 hitPos) {
+    vec3 xv_to_xs = s.xv - s.xs; float dist_q2 = dot(xv_to_xs, xv_to_xs);
+    if (dist_q2 > 1e7) return 1.0;
+
+    vec3 new_to_xs = hitPos - s.xs; float dist_r2 = dot(new_to_xs, new_to_xs);
+    
+    if (dist_q2 < 1e-4 || dist_r2 < 1e-4) return 0.0;
+
+    vec3 dq = xv_to_xs * inversesqrt(dist_q2); 
+    vec3 dr = new_to_xs * inversesqrt(dist_r2);
+    float cos_q = abs(dot(dq, s.ns)); 
+    float cos_r = abs(dot(dr, s.ns));
+
+    if (cos_q < 0.05 || cos_r < 0.05) return 0.0;
+
+    float jacobian = (cos_r * dist_q2) / (cos_q * dist_r2);
+    
+    return clamp(jacobian, 0.1, 10.0);
+}
+
+float EvalTarget(GISample s, vec3 hitPos, vec3 normal, vec3 viewDir, vec3 albedo, vec3 specColor, float roughness) {
+    vec3 dirToS = s.xs - hitPos;
+    float dist2 = dot(dirToS, dirToS);
+    if (dist2 < 1e-6) return 0.0;
+    dirToS *= inversesqrt(dist2); 
+    
+    vec3 brdf = EvaluateBRDF(viewDir, dirToS, normal, albedo, specColor, roughness);
+    return clamp(Luminance(brdf * s.L_o), 0.0, 10000.0); // NO JACOBIAN HERE!
+}
+
+Reservoir initReservoir() {
+    Reservoir r; r.s.xv = vec3(0.0); r.s.nv = vec3(0.0); r.s.xs = vec3(0.0); r.s.ns = vec3(0.0); r.s.L_o = vec3(0.0); r.w_sum = 0.0; r.W = 0.0; r.M = 0; return r;
+}
+
+void updateReservoir(inout Reservoir r, GISample s, float weight, float randVal) {
+    r.w_sum += weight;
+    r.M += 1;
+    if (randVal < (weight / max(r.w_sum, 0.00001))) r.s = s;
+}
+
+vec2 GetPrevScreenUV(vec3 worldPos) {
+    vec3 dir = worldPos - prevCameraPosition;
+    vec3 N = cross(prevCameraRayRight, prevCameraRayUp);
+    float NdotDir = dot(dir, N);
+    if (abs(NdotDir) < 1e-6) return vec2(-1.0);
+    float t = dot(prevCameraRayBottomLeft, N) / NdotDir; 
+    if (t <= 0.0) return vec2(-1.0);
+    vec3 P_rel = (t * dir) - prevCameraRayBottomLeft; 
+    float u = dot(P_rel, prevCameraRayRight) / dot(prevCameraRayRight, prevCameraRayRight);
+    float v = dot(P_rel, prevCameraRayUp) / dot(prevCameraRayUp, prevCameraRayUp);
+    return vec2(u, 1.0 - v);
+}
+
+void main() {
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 imgSize = imageSize(imgOutput);
+    if (pixelCoords.x >= imgSize.x || pixelCoords.y >= imgSize.y) return;
+
+    uint pixelIdx = pixelCoords.y * imgSize.x + pixelCoords.x;
+    uint seed = uint(pixelCoords.x) * uint(1973) + uint(pixelCoords.y) * uint(9277) + uint(frameCount) * uint(26699);
+    pcgHash(seed);
+
+    vec2 jitter = vec2(rand(seed), rand(seed)) - 0.5;
+    vec2 uv = vec2((float(pixelCoords.x) + jitter.x) / float(imgSize.x), 1.0 - ((float(pixelCoords.y) + jitter.y) / float(imgSize.y)));
+
+    Ray ray = Ray(cameraPosition, normalize(cameraRayBottomLeft + uv.x * cameraRayRight + uv.y * cameraRayUp), vec3(0.0));
+    ray.invDir = safeInvDir(ray.dir);
+
+    HitInfo hit; vec3 hitPos, normal, albedo, specColor; float roughness, alpha; int transparentBounces = 0;
+    while(transparentBounces < maxBounces) {
+        hit = TraverseBVH(ray);
+        if (!hit.hit) break;
+        GetHitAttributes(hit, ray, true, hitPos, normal, albedo, specColor, roughness, alpha);
+        if (rand(seed) > alpha) { ray.origin = hitPos + ray.dir * 0.001; transparentBounces++; continue; }
+        break;
+    }
+
+    if (!hit.hit) {
+        vec3 skyColor = GetSkyColor(ray.dir);
+        if (frameCount > 0) skyColor = mix(imageLoad(imgOutput, pixelCoords).rgb, skyColor, 1.0 / min(float(frameCount + 1), 32.0));
+        currReservoirs[pixelIdx] = PackReservoir(initReservoir());
+        imageStore(imgOutput, pixelCoords, vec4(skyColor, 1.0));
+        return;
+    }
+
+    vec3 viewDir = -ray.dir; float depth = length(hitPos - cameraPosition);
+    vec3 directLighting = vec3(0.0);
+    if (!IsShadowed(hitPos + normal * 0.001, DIR_LIGHT_DIR, 1e30)) {
+        directLighting = albedo * DIR_LIGHT_COLOR * max(dot(normal, DIR_LIGHT_DIR), 0.0) / PI;
+    }
+
+    // 1. Initial Candidate
+    vec3 candidateDir = RandomCosineDirection(seed, normal);
+    float candidatePdf = max(dot(normal, candidateDir), 0.0001) / PI;
+
+    Ray secRay = Ray(hitPos + normal * 0.001, candidateDir, safeInvDir(candidateDir));
+    HitInfo secHit = TraverseBVH(secRay);
+
+    GISample candidateSample; candidateSample.xv = hitPos; candidateSample.nv = normal;
+
+    if (secHit.hit) {
+        vec3 secPos, secNormal, secAlbedo, secSpec; float secRough, secAlpha;
+        GetHitAttributes(secHit, secRay, false, secPos, secNormal, secAlbedo, secSpec, secRough, secAlpha);
+        
+        float albedoLum = Luminance(secAlbedo);
+        
+        float desaturationFactor = 0.85; 
+        secAlbedo = mix(secAlbedo, vec3(albedoLum), desaturationFactor);
+
+        vec3 secDirect = vec3(0.0);
+        if (!IsShadowed(secPos + secNormal * 0.001, DIR_LIGHT_DIR, 1e30)) {
+            secDirect = secAlbedo * DIR_LIGHT_COLOR * max(dot(secNormal, DIR_LIGHT_DIR), 0.0) / PI;
+        }
+        candidateSample.xs = secPos; candidateSample.ns = secNormal; candidateSample.L_o = secDirect; 
+    } else {
+        candidateSample.xs = secRay.origin + secRay.dir * 10000.0; candidateSample.ns = -secRay.dir; candidateSample.L_o = GetSkyColor(secRay.dir);
+    }
+
+    // 2. Temporal Reuse
+    Reservoir temporalR = initReservoir();
+    float p_hat_c = EvalTarget(candidateSample, hitPos, normal, viewDir, albedo, specColor, roughness);
+    float w_c = candidatePdf > 0.0 ? (p_hat_c / candidatePdf) : 0.0;
+    updateReservoir(temporalR, candidateSample, w_c, rand(seed));
+
+    if (enableTemporalReuse && frameCount > 0) {
+        vec2 prevUV = GetPrevScreenUV(hitPos);
+        if (prevUV.x >= 0.0 && prevUV.x <= 1.0 && prevUV.y >= 0.0 && prevUV.y <= 1.0) {
+            ivec2 prevPixelCoords = ivec2(round(prevUV * vec2(imgSize)));
+            prevPixelCoords = clamp(prevPixelCoords, ivec2(0), imgSize - 1);
+            uint prevIdx = prevPixelCoords.y * imgSize.x + prevPixelCoords.x;
+            
+            vec4 d1 = prevReservoirs[prevIdx].data1;
+            uint prevM = floatBitsToUint(d1.w);
+            if (prevM > 0) {
+                float prevDepth = length(d1.xyz - prevCameraPosition);
+                if (abs(depth - prevDepth) < GEOMETRY_DEPTH_THRESHOLD * depth) {
+                    vec4 d0 = prevReservoirs[prevIdx].data0;
+                    vec3 prevNv = unpackNormal(floatBitsToUint(d0.w));
+                    
+                    if (dot(normal, prevNv) > GEOMETRY_NORMAL_THRESHOLD) {
+                        PackedReservoir fullP; fullP.data0 = d0; fullP.data1 = d1;
+                        fullP.data2 = prevReservoirs[prevIdx].data2; fullP.data3 = prevReservoirs[prevIdx].data3;
+                        
+                        Reservoir prevR = UnpackReservoir(fullP);
+                        prevR.M = min(prevR.M, TEMPORAL_MAX_M);
+                        
+                        float p_hat_prev = EvalTarget(prevR.s, hitPos, normal, viewDir, albedo, specColor, roughness);
+                        float jacobian_prev = GetJacobian(prevR.s, hitPos);
+                        
+                        float p_hat_prev_prime = (jacobian_prev > 0.0) ? (p_hat_prev / jacobian_prev) : 0.0;
+                        
+                        updateReservoir(temporalR, prevR.s, p_hat_prev_prime * prevR.W * float(prevR.M), rand(seed));
+                        temporalR.M += prevR.M - 1; 
+                    }
+                }
+            }
+        }
+    }
+    float p_hat_t = EvalTarget(temporalR.s, hitPos, normal, viewDir, albedo, specColor, roughness);
+    temporalR.W = p_hat_t > 0.0 ? (temporalR.w_sum / (float(temporalR.M) * p_hat_t)) : 0.0;
+
+    temporalR.s.xv = hitPos;
+    temporalR.s.nv = normal;
+
+    // 3. Spatial Reuse 
+    Reservoir spatialR = initReservoir();
+    updateReservoir(spatialR, temporalR.s, p_hat_t * temporalR.W * float(temporalR.M), rand(seed));
+    spatialR.M = temporalR.M;
+
+    const int MAX_SPATIAL_TAPS = 9;
+    uint validNeighbors[MAX_SPATIAL_TAPS];
+    int validNeighborCount = 0;
+
+    if (enableSpatialReuse) {
+        int numSpatialTaps = (spatialR.M < TEMPORAL_MAX_M * 2u) ? SPATIAL_TAPS_HIGH : SPATIAL_TAPS_LOW;
+        float currentRadius = SPATIAL_BASE_RADIUS;
+
+        for (int i = 0; i < numSpatialTaps; i++) { 
+            float rad = sqrt(rand(seed)) * currentRadius;
+            float ang = rand(seed) * 2.0 * PI;
+            ivec2 neighborCoord = ivec2(pixelCoords) + ivec2(cos(ang) * rad, sin(ang) * rad);
+
+            if (neighborCoord.x >= 0 && neighborCoord.x < imgSize.x && neighborCoord.y >= 0 && neighborCoord.y < imgSize.y) {
+                uint neighborIdx = neighborCoord.y * imgSize.x + neighborCoord.x;
+
+                vec4 d1 = prevReservoirs[neighborIdx].data1;
+                if (floatBitsToUint(d1.w) == 0) { currentRadius *= 0.5; continue; }
+
+                float nDepth = length(d1.xyz - prevCameraPosition);
+                if (abs(depth - nDepth) > GEOMETRY_DEPTH_THRESHOLD * depth) { currentRadius *= 0.5; continue; }
+
+                vec4 d0 = prevReservoirs[neighborIdx].data0;
+                vec3 nNormal = unpackNormal(floatBitsToUint(d0.w));
+                if (dot(normal, nNormal) < GEOMETRY_NORMAL_THRESHOLD) { currentRadius *= 0.5; continue; }
+
+                PackedReservoir fullP; fullP.data0 = d0; fullP.data1 = d1;
+                fullP.data2 = prevReservoirs[neighborIdx].data2; fullP.data3 = prevReservoirs[neighborIdx].data3;
+                Reservoir nR = UnpackReservoir(fullP);
+
+                float jacobian_n = GetJacobian(nR.s, hitPos);
+                
+                float p_hat_n = EvalTarget(nR.s, hitPos, normal, viewDir, albedo, specColor, roughness);
+                float p_hat_prime = (jacobian_n > 0.0) ? (p_hat_n / jacobian_n) : 0.0;
+
+                updateReservoir(spatialR, nR.s, p_hat_prime * nR.W * float(nR.M), rand(seed));
+                
+                validNeighbors[validNeighborCount++] = neighborIdx;
+            }
+        }
+    }
+
+    uint Z = temporalR.M; 
+
+    for (int i = 0; i < validNeighborCount; i++) {
+        uint neighborIdx = validNeighbors[i];
+        vec4 d0 = prevReservoirs[neighborIdx].data0;
+        vec4 d1 = prevReservoirs[neighborIdx].data1;
+        
+        vec3 nHitPos = d1.xyz;
+        vec3 nNormal = unpackNormal(floatBitsToUint(d0.w));
+        uint nM = floatBitsToUint(d1.w);
+        
+        vec3 dirToS = spatialR.s.xs - nHitPos;
+        float distToS2 = dot(dirToS, dirToS);
+        
+        if (distToS2 > 1e-6) {
+            dirToS *= inversesqrt(distToS2);
+            if (dot(nNormal, dirToS) > 0.01 && dot(spatialR.s.ns, -dirToS) > 0.01) {
+                Z += nM;
+            }
+        } else {
+            Z += nM;
+        }
+    }
+
+    float p_hat_s = EvalTarget(spatialR.s, hitPos, normal, viewDir, albedo, specColor, roughness);
+    spatialR.W = p_hat_s > 0.0 ? min(spatialR.w_sum / (float(Z) * p_hat_s), SPATIAL_WEIGHT_CLAMP) : 0.0; 
+    
+    spatialR.M = min(Z, SPATIAL_MAX_M);
+
+    // 4. Shading
+    vec3 indirectLighting = vec3(0.0);
+    if (spatialR.M > 0 && spatialR.W > 0.0) {
+        vec3 dirToFinal = spatialR.s.xs - hitPos;
+        float distToFinal = length(dirToFinal);
+        if (distToFinal > 1e-4) {
+            dirToFinal /= distToFinal;
+            
+            if (!IsShadowed(hitPos + normal * 0.002, dirToFinal, distToFinal - 0.004)) {
+                vec3 brdf = EvaluateBRDF(viewDir, dirToFinal, normal, albedo, specColor, roughness);
+                indirectLighting = brdf * spatialR.s.L_o * spatialR.W;
+            } else {
+                spatialR.W = 0.0;
+                spatialR.M = 0;
+            }
+        } else {
+            spatialR.W = 0.0;
+            spatialR.M = 0;
+        }
+    } else {
+        spatialR.W = 0.0;
+        spatialR.M = 0;
+    }
+
+    spatialR.s.xv = hitPos;
+    spatialR.s.nv = normal;
+
+    currReservoirs[pixelIdx] = PackReservoir(spatialR);
+
+    vec3 newColor = directLighting + indirectLighting;
+    if (any(isnan(newColor)) || any(isinf(newColor))) newColor = vec3(0.0);
+
+    if (frameCount > 0 && enableFrameMix) {
+        vec3 prevColor = imageLoad(imgOutput, pixelCoords).rgb;
+        newColor = mix(prevColor, newColor, 1.0 / min(float(frameCount + 1), 32.0));
+    }
+
+    imageStore(imgOutput, pixelCoords, vec4(newColor, 1.0));
+}

@@ -11,81 +11,126 @@ Shader::Shader(const fs::path& l_path, SharedContext* l_sharedContext)
     if (!inputStream.is_open())
     {
         std::cout << "ERROR::SHADERFILE: failed to open " << l_path << '\n';
+        return;
+    }
+    std::string firstWord;
+    inputStream >> firstWord;
+
+    if (firstWord == "COMPUTE")
+    {
+        std::string compPath;
+        inputStream >> compPath;
+        CreateCompute(("shaders/" + compPath).c_str());
     }
     else
     {
-        std::string vertShaderName, fragShaderName;
-        if (inputStream >> vertShaderName)
+        std::string vertShaderName = "shaders/" + firstWord;
+        std::string fragShaderName, geomShaderName;
+        inputStream >> fragShaderName;
+        fragShaderName = "shaders/" + fragShaderName;
+
+        if (inputStream >> geomShaderName)
         {
-            vertShaderName = "shaders/" + vertShaderName;
+            Create(vertShaderName.c_str(), fragShaderName.c_str(), ("shaders/" + geomShaderName).c_str());
         }
-        if (inputStream >> fragShaderName)
+        else
         {
-            fragShaderName = "shaders/" + fragShaderName;
+            Create(vertShaderName.c_str(), fragShaderName.c_str(), nullptr);
         }
-        Create(vertShaderName.c_str(), fragShaderName.c_str());
     }
 }
 
-void Shader::Create(const GLchar* vertexPath, const GLchar* fragmentPath)
+void Shader::Create(const GLchar* vertexPath, const GLchar* fragmentPath, const GLchar* geometryPath)
 {
-    std::string vertexCode;
-    std::string fragmentCode;
-    std::ifstream vShaderFile;
-    std::ifstream fShaderFile;
-
-    vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-    fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-    try
+    auto LoadFile = [](const GLchar* path) -> std::string
     {
-        vShaderFile.open(vertexPath);
-        fShaderFile.open(fragmentPath);
-        std::stringstream vShaderStream, fShaderStream;
-        // read file's buffer contents into streams
-        vShaderStream << vShaderFile.rdbuf();
-        fShaderStream << fShaderFile.rdbuf();
-        // close file handlers
-        vShaderFile.close();
-        fShaderFile.close();
-        // convert stream into string
-        vertexCode   = vShaderStream.str();
-        fragmentCode = fShaderStream.str();
-    }
-    catch (std::ifstream::failure& error)
-    {
-        std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ: " << error.what() << std::endl;
-    }
+        try
+        {
+            std::ifstream file(path);
+            std::stringstream stream;
+            stream << file.rdbuf();
+            return stream.str();
+        }
+        catch (...)
+        {
+            return "";
+        }
+    };
 
-    const GLchar* vertexShaderCode   = vertexCode.c_str();
-    const GLchar* fragmentShaderCode = fragmentCode.c_str();
-    // 2. compile shaders
-    // vertex shader
-    GLuint vertexID = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexID, 1, &vertexShaderCode, NULL);
+    std::string vertexCode   = LoadFile(vertexPath);
+    std::string fragmentCode = LoadFile(fragmentPath);
+    std::string geometryCode = geometryPath ? LoadFile(geometryPath) : "";
+
+    const GLchar* vCode = vertexCode.c_str();
+    GLuint vertexID     = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexID, 1, &vCode, NULL);
     glCompileShader(vertexID);
     CheckCompileErrors(vertexID, "VERTEX");
 
-    // fragment Shader
-    GLuint fragmentID = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentID, 1, &fragmentShaderCode, NULL);
+    const GLchar* fCode = fragmentCode.c_str();
+    GLuint fragmentID   = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentID, 1, &fCode, NULL);
     glCompileShader(fragmentID);
     CheckCompileErrors(fragmentID, "FRAGMENT");
 
-    // shader Program
+    GLuint geometryID = 0;
+    if (geometryPath)
+    {
+        const GLchar* gCode = geometryCode.c_str();
+        geometryID          = glCreateShader(GL_GEOMETRY_SHADER);
+        glShaderSource(geometryID, 1, &gCode, NULL);
+        glCompileShader(geometryID);
+        CheckCompileErrors(geometryID, "GEOMETRY");
+    }
+
     ID = glCreateProgram();
     glAttachShader(ID, vertexID);
     glAttachShader(ID, fragmentID);
+    if (geometryPath)
+    {
+        glAttachShader(ID, geometryID);
+    }
+
     glLinkProgram(ID);
     CheckCompileErrors(ID, "PROGRAM");
 
-    // delete the shaders as they're linked into our program now and no longer necessary
     glDeleteShader(vertexID);
     glDeleteShader(fragmentID);
+    if (geometryPath)
+    {
+        glDeleteShader(geometryID);
+    }
+}
+
+void Shader::CreateCompute(const GLchar* computePath)
+{
+    auto LoadFile = [](const GLchar* path) -> std::string
+    {
+        std::ifstream file(path);
+        std::stringstream stream;
+        stream << file.rdbuf();
+        return stream.str();
+    };
+
+    std::string computeCode = LoadFile(computePath);
+    const GLchar* cCode     = computeCode.c_str();
+
+    GLuint computeID = glCreateShader(GL_COMPUTE_SHADER);
+    glShaderSource(computeID, 1, &cCode, NULL);
+    glCompileShader(computeID);
+    CheckCompileErrors(computeID, "COMPUTE");
+
+    ID = glCreateProgram();
+    glAttachShader(ID, computeID);
+    glLinkProgram(ID);
+    CheckCompileErrors(ID, "PROGRAM");
+
+    glDeleteShader(computeID);
 }
 
 Shader::~Shader()
 {
-    std::cout << "Shader gone ID: " << ID << " name: " << name << '\n';
+    // std::cout << "Shader gone ID: " << ID << " name: " << name << '\n';
     if (ID != 0)
     {
         glDeleteProgram(ID);
@@ -147,10 +192,32 @@ void Shader::SetSpecTexture(const GLuint specular) const
     glBindTextureUnit(2, specular);
 }
 
+void Shader::SetAlphaTexture(const GLuint alpha) const
+{
+    glBindTextureUnit(3, alpha);
+}
+
+void Shader::SetNormalTexture(const GLuint normal) const
+{
+    glBindTextureUnit(4, normal);
+}
+
+void Shader::SetDepthCubemapTexture(const GLuint depthCubemap) const
+{
+    glBindTextureUnit(5, depthCubemap);
+}
+
 void Shader::SetDiffAndSpecTextures(const GLuint diffusive, const GLuint specular) const
 {
     glBindTextureUnit(1, diffusive);
     glBindTextureUnit(2, specular);
+}
+
+void Shader::Dispatch(GLuint x, GLuint y, GLuint z) const
+{
+    glUseProgram(ID);
+    glDispatchCompute(x, y, z);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
 }
 
 void Shader::CheckCompileErrors(GLuint shader, const std::string& type) const
@@ -185,11 +252,11 @@ void Shader::CheckCompileErrors(GLuint shader, const std::string& type) const
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success)
         {
-            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+            glGetProgramiv(shader, GL_INFO_LOG_LENGTH, &length);
             if (length > 0)
             {
                 GLchar* info(new GLchar[length]);
-                glGetShaderInfoLog(shader, length, 0, info);
+                glGetProgramInfoLog(shader, length, 0, info);
                 std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "program name: " << name
                           << info << " -- --------------------------------------------------- -- " << std::endl;
                 delete[] info;

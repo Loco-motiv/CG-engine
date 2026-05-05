@@ -4,18 +4,13 @@
 class Mesh
 {
 public:
-    Mesh(std::string l_name, std::tuple<GLuint, GLuint, GLuint, GLuint> meshData, SharedContext* l_sharedContext)
-        : name(l_name), VAO(std::get<0>(meshData)), VBO(std::get<1>(meshData)), IBO(std::get<2>(meshData)), elementsCount(std::get<3>(meshData)),
+    Mesh(std::string l_name, MeshRawData&& l_data, SharedContext* l_sharedContext)
+        : name(l_name),
+          VAO(l_data.VAO), VBO(l_data.VBO), IBO(l_data.IBO),
+          elementsCount(l_data.elementsCount),
+          m_vertices(std::move(l_data.vertices)),
+          m_indices(std::move(l_data.indices)),
           m_sharedContext{ l_sharedContext } {}
-    Mesh(const fs::path& l_path, SharedContext* l_sharedContext)
-        : name(l_path.filename().string()), m_sharedContext{ l_sharedContext }
-    {
-        auto result   = m_sharedContext->graphics->MakeMesh(l_path.string());
-        VAO           = std::get<0>(result);
-        VBO           = std::get<1>(result);
-        IBO           = std::get<2>(result);
-        elementsCount = std::get<3>(result);
-    }
     Mesh(const Mesh&)            = delete;
     Mesh& operator=(const Mesh&) = delete;
 
@@ -24,7 +19,7 @@ public:
 
     ~Mesh()
     {
-        std::cout << "Mesh gone ID: " << VAO << " name: " << name << '\n';
+        // std::cout << "Mesh gone ID: " << VAO << " name: " << name << '\n';
 
         if (VAO != 0)
         {
@@ -35,6 +30,8 @@ public:
 
     GLuint VAO, VBO, IBO;
     GLuint elementsCount;
+    std::vector<Vertex> m_vertices;
+    std::vector<GLuint> m_indices;
 
 private:
     SharedContext* m_sharedContext;

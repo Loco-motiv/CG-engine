@@ -9,7 +9,7 @@
 # Faces: 20000
 #
 ####
-#mtllib ./Beethoven_20k.obj.mtl
+mtllib ./Beethoven_20k.obj.mtl
 
 vn 0.8226788 -0.1446321 -0.5498011
 v 81.5497742 -20.5079136 -50.9974136
@@ -20018,7 +20018,7 @@ v -45.9645920 -148.2994843 66.7445297
 # 10002 vertices, 0 vertices normals
 
 
-#usemtl material_0
+usemtl material_0
 vt 0.1711251 0.4028160
 vt 0.1739958 0.4049778
 vt 0.1713441 0.4046538

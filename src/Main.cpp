@@ -6,7 +6,7 @@
 
 int main()
 {
-    Game game; // Creating our game object.
+    Game game;
     while (!game.GetWindow()->IsOver())
     {
         // Game loop.

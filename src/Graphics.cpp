@@ -6,6 +6,7 @@ Graphics::Graphics()
     ConfigureFreeType();
     MakePBOs();
     MakeFBOs();
+    MakeShadowMap();
 }
 
 Graphics::~Graphics()
@@ -13,14 +14,13 @@ Graphics::~Graphics()
     FreeObjects();
 }
 
-void APIENTRY
-glDebugOutput(GLenum source,
-              GLenum type,
-              unsigned int id,
-              GLenum severity,
-              GLsizei length,
-              const char* message,
-              const void* userParam)
+void glDebugOutput(GLenum source,
+                   GLenum type,
+                   unsigned int id,
+                   GLenum severity,
+                   GLsizei length,
+                   const char* message,
+                   const void* userParam)
 {
     // ignore non-significant error/warning codes
     if (id == 131169 || id == 131185 || id == 131218 || id == 131204)
@@ -107,7 +107,7 @@ glDebugOutput(GLenum source,
 
 void Graphics::ConfigureOpenGL()
 {
-    gladLoadGL();
+    gladLoaderLoadGL();
 
     glEnable(GL_CULL_FACE);  //* enable culling faces
     glCullFace(GL_BACK);     //* cull back face
@@ -139,7 +139,7 @@ void Graphics::ConfigureFreeType()
         return;
     }
 
-    if (FT_New_Face(m_ft, "resources/fonts/minecraft.ttf", 0, &m_face))
+    if (FT_New_Face(m_ft, "resources/fonts/arial.ttf", 0, &m_face))
     {
         std::cout << "ERROR::FREETYPE: Failed to load font" << std::endl;
         return;
@@ -203,6 +203,7 @@ void Graphics::ConfigureFreeType()
 void Graphics::MakePBOs()
 {
     MakePickingPBO();
+    MakeSSBO();
 }
 
 void Graphics::MakeFBOs()
@@ -210,7 +211,7 @@ void Graphics::MakeFBOs()
     MakePickingFBO(m_pickingWidth, m_pickingHeight);
 }
 
-GLuint Graphics::MakeTexture(char const* path)
+std::pair<GLuint, GLuint64> Graphics::MakeTexture(char const* path)
 {
     unsigned int textureID;
     glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
@@ -254,15 +255,18 @@ GLuint Graphics::MakeTexture(char const* path)
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
     }
-    return textureID;
+    GLuint64 handle = glGetTextureHandleARB(textureID);
+    glMakeTextureHandleResidentARB(handle);
+    return std::make_pair(textureID, handle);
 }
 
-void Graphics::FreeTexture(const GLuint l_id)
+void Graphics::FreeTexture(const GLuint l_id, const GLuint64 l_handle)
 {
+    glMakeTextureHandleNonResidentARB(l_handle);
     glDeleteTextures(1, &l_id);
 }
 
-std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeQuadMesh()
+MeshRawData Graphics::MakeQuadMesh()
 {
     GLfloat vertices[4][4] = {
         {  0.5f,  0.5f, 1.0f, 0.0f },
@@ -286,36 +290,31 @@ std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeQuadMesh()
 
     GLuint m_rectangleVAO;
     glCreateVertexArrays(1, &m_rectangleVAO);
-
     glVertexArrayVertexBuffer(m_rectangleVAO, 0, pointsVBO, 0, 4 * sizeof(GLfloat));
     glVertexArrayElementBuffer(m_rectangleVAO, pointsIBO);
-
     glVertexArrayAttribFormat(m_rectangleVAO, 0, 2, GL_FLOAT, GL_FALSE, 0);
     glVertexArrayAttribFormat(m_rectangleVAO, 1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat));
-
     glVertexArrayAttribBinding(m_rectangleVAO, 0, 0);
     glVertexArrayAttribBinding(m_rectangleVAO, 1, 0);
-
     glEnableVertexArrayAttrib(m_rectangleVAO, 0);
     glEnableVertexArrayAttrib(m_rectangleVAO, 1);
 
-    return { m_rectangleVAO, pointsVBO, pointsIBO, 6 };
+    return {
+        .vertices      = std::vector<Vertex>{ { vertices[0][0], vertices[0][1], 0.0f, 0.0f, 0.0f, 1.0f, vertices[0][2], vertices[0][3], 0.0f },
+                                             { vertices[1][0], vertices[1][1], 0.0f, 0.0f, 0.0f, 1.0f, vertices[1][2], vertices[1][3], 0.0f },
+                                             { vertices[2][0], vertices[2][1], 0.0f, 0.0f, 0.0f, 1.0f, vertices[2][2], vertices[2][3], 0.0f },
+                                             { vertices[3][0], vertices[3][1], 0.0f, 0.0f, 0.0f, 1.0f, vertices[3][2], vertices[3][3], 0.0f } },
+        .indices       = std::vector<uint32_t>{ indices[0][0], indices[0][1], indices[0][2],
+                                             indices[1][0], indices[1][1], indices[1][2] },
+        .VAO           = m_rectangleVAO,
+        .VBO           = pointsVBO,
+        .IBO           = pointsIBO,
+        .elementsCount = 6
+    };
 }
 
-std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeMesh(const std::string path) // TODO i definitely made this way too complicated
+std::vector<std::pair<std::string, MeshRawData>> Graphics::MakeMeshes(const std::string& path, const std::string& l_matPath)
 {
-    struct Vertex
-    {
-        GLfloat px, py, pz;
-        GLfloat nx, ny, nz;
-        GLfloat u, v;
-
-        bool operator==(const Vertex& other) const
-        {
-            return memcmp(this, &other, sizeof(Vertex)) == 0;
-        }
-    };
-
     struct VertexHash
     {
         static inline uint32_t mix(uint32_t x)
@@ -351,8 +350,8 @@ std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeMesh(const std::string 
     };
 
     tinyobj::ObjReaderConfig readerConfig;
-    // TODO readerConfig.mtl_search_path = "./";
-    readerConfig.triangulate = true;
+    readerConfig.mtl_search_path = l_matPath;
+    readerConfig.triangulate     = true;
 
     tinyobj::ObjReader reader;
 
@@ -362,7 +361,7 @@ std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeMesh(const std::string 
         {
             std::cout << "ERROR::TINYOBJREADER: " << reader.Error();
         }
-        return { 0, 0, 0, 0 };
+        return {};
     }
 
     if (!reader.Warning().empty())
@@ -373,15 +372,14 @@ std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeMesh(const std::string 
     auto& attrib = reader.GetAttrib();
     auto& shapes = reader.GetShapes();
     // auto& materials = reader.GetMaterials();
-
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-
-    std::unordered_map<Vertex, uint32_t, VertexHash> uniqueVertices;
+    std::vector<std::pair<std::string, MeshRawData>> meshes;
 
     // Loop over shapes
     for (size_t s = 0; s < shapes.size(); s++)
     {
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+        std::unordered_map<Vertex, uint32_t, VertexHash> uniqueVertices;
         // Loop over faces(polygon)
         size_t index_offset = 0;
         for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++)
@@ -419,48 +417,151 @@ std::tuple<GLuint, GLuint, GLuint, GLuint> Graphics::MakeMesh(const std::string 
                 //* deduplication
                 if (uniqueVertices.count(vert) == 0)
                 {
-                    uint32_t newIndex    = static_cast<uint32_t>(vertices.size());
-                    uniqueVertices[vert] = newIndex;
+                    uniqueVertices[vert] = static_cast<uint32_t>(vertices.size());
                     vertices.push_back(vert);
                 }
 
                 indices.push_back(uniqueVertices[vert]);
             }
             index_offset += fv;
-
-            // per-face material
-            // shapes[s].mesh.material_ids[f];
         }
-        // TODO implement one shape = one mesh
+        if (vertices.empty() || indices.empty())
+        {
+            continue;
+        }
+
+        std::vector<sf::Vector3f> tangents(vertices.size(), sf::Vector3f(0.0f, 0.0f, 0.0f));
+        for (size_t i = 0; i < indices.size(); i += 3)
+        {
+            uint32_t i0 = indices[i], i1 = indices[i + 1], i2 = indices[i + 2];
+            Vertex& v0 = vertices[i0];
+            Vertex& v1 = vertices[i1];
+            Vertex& v2 = vertices[i2];
+
+            sf::Vector3f edge1(v1.px - v0.px, v1.py - v0.py, v1.pz - v0.pz);
+            sf::Vector3f edge2(v2.px - v0.px, v2.py - v0.py, v2.pz - v0.pz);
+            sf::Vector2f deltaUV1(v1.u - v0.u, v1.v - v0.v);
+            sf::Vector2f deltaUV2(v2.u - v0.u, v2.v - v0.v);
+
+            float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+            sf::Vector3f tangent;
+            tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+            tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+            tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+            tangents[i0] += tangent;
+            tangents[i1] += tangent;
+            tangents[i2] += tangent;
+        }
+
+        for (size_t i = 0; i < vertices.size(); i++)
+        {
+            sf::Vector3f n(vertices[i].nx, vertices[i].ny, vertices[i].nz);
+            sf::Vector3f t = tangents[i];
+            t              = t - n * Dot(n, t);
+            Normalize(t);
+
+            vertices[i].tx = t.x;
+            vertices[i].ty = t.y;
+            vertices[i].tz = t.z;
+        }
+
+        GLuint VAO, VBO, IBO;
+
+        glCreateVertexArrays(1, &VAO);
+
+        glCreateBuffers(1, &VBO);
+        glNamedBufferData(VBO, vertices.size() * sizeof(Vertex),
+                          vertices.data(), GL_STATIC_DRAW);
+
+        glCreateBuffers(1, &IBO);
+        glNamedBufferData(IBO, indices.size() * sizeof(uint32_t),
+                          indices.data(), GL_STATIC_DRAW);
+
+        glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
+        glVertexArrayElementBuffer(VAO, IBO);
+
+        glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, px));
+        glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, nx));
+        glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, u));
+        glVertexArrayAttribFormat(VAO, 3, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, tx));
+
+        for (int i = 0; i < 4; i++)
+        {
+            glVertexArrayAttribBinding(VAO, i, 0);
+            glEnableVertexArrayAttrib(VAO, i);
+        }
+        size_t elementsCount = indices.size();
+        meshes.push_back({ shapes[s].name,
+                           MeshRawData({ std::move(vertices), std::move(indices), VAO, VBO, IBO, elementsCount }) });
     }
-    GLuint VAO, VBO, IBO;
 
-    glCreateVertexArrays(1, &VAO);
+    return meshes;
+}
 
-    glCreateBuffers(1, &VBO);
-    glNamedBufferData(VBO, vertices.size() * sizeof(Vertex),
-                      vertices.data(), GL_STATIC_DRAW);
+std::vector<tinyobj::material_t> Graphics::GetMeshMaterials(const std::string& path)
+{
+    std::vector<tinyobj::material_t> materials;
+    std::map<std::string, int> material_map;
+    std::string err;
+    std::string warn;
 
-    glCreateBuffers(1, &IBO);
-    glNamedBufferData(IBO, indices.size() * sizeof(uint32_t),
-                      indices.data(), GL_STATIC_DRAW);
+    std::ifstream matStream(path);
+    if (!matStream.is_open())
+    {
+        std::cerr << "Failed to open MTL file: " << path << std::endl;
+        return {};
+    }
 
-    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
-    glVertexArrayElementBuffer(VAO, IBO);
+    tinyobj::LoadMtl(&material_map, &materials, &matStream, &warn, &err);
 
-    glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, px));
-    glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, nx));
-    glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, u));
+    if (!warn.empty())
+    {
+        std::cout << "TINYOBJ MAT WARNING: " << warn << std::endl;
+    }
 
-    glVertexArrayAttribBinding(VAO, 0, 0);
-    glVertexArrayAttribBinding(VAO, 1, 0);
-    glVertexArrayAttribBinding(VAO, 2, 0);
+    if (!err.empty())
+    {
+        std::cerr << "TINYOBJ MAT ERROR: " << err << std::endl;
+        return {};
+    }
 
-    glEnableVertexArrayAttrib(VAO, 0);
-    glEnableVertexArrayAttrib(VAO, 1);
-    glEnableVertexArrayAttrib(VAO, 2);
+    return materials;
+}
 
-    return { VAO, VBO, IBO, indices.size() };
+std::vector<std::pair<std::string, std::string>> Graphics::GetMeshAndMaterialNames(const std::string& path, const std::string& l_matPath)
+{
+    std::vector<std::pair<std::string, std::string>> meshMaterialNames;
+    tinyobj::ObjReaderConfig readerConfig;
+    readerConfig.mtl_search_path = l_matPath;
+    readerConfig.triangulate     = true;
+
+    tinyobj::ObjReader reader;
+
+    if (!reader.ParseFromFile(path, readerConfig))
+    {
+        if (!reader.Error().empty())
+        {
+            std::cout << "ERROR::TINYOBJREADER: " << reader.Error();
+        }
+        return {};
+    }
+
+    if (!reader.Warning().empty())
+    {
+        std::cout << "ERROR::TINYOBJREADER: " << reader.Warning();
+    }
+
+    auto& shapes = reader.GetShapes();
+
+    for (size_t s = 0; s < shapes.size(); s++)
+    {
+        int materialID = shapes[s].mesh.material_ids.empty() ? -1 : shapes[s].mesh.material_ids[0];
+        meshMaterialNames.push_back({ shapes[s].name,
+                                      (materialID >= 0 ? reader.GetMaterials()[materialID].name : "") });
+    }
+
+    return meshMaterialNames;
 }
 
 void Graphics::FreeMesh(GLuint l_VAO, GLuint l_VBO, GLuint l_IBO)
@@ -472,12 +573,74 @@ void Graphics::FreeMesh(GLuint l_VAO, GLuint l_VBO, GLuint l_IBO)
 
 void Graphics::FreeObjects()
 {
+    for (auto ssbo : SSBOs)
+    {
+        glDeleteBuffers(1, &ssbo);
+    }
+    glDeleteBuffers(1, &m_pickingPBO);
+    glDeleteFramebuffers(1, &m_pickingFBO);
+    glDeleteFramebuffers(1, &depthFBO);
+    glDeleteTextures(1, &m_computeTextureID);
+    glDeleteTextures(1, &m_pickingColorTexture);
+    glDeleteTextures(1, &m_pickingDepthTexture);
+    glDeleteTextures(1, &depthCubemapArray);
 }
 
 void Graphics::MakePickingPBO()
 {
     glCreateBuffers(1, &m_pickingPBO);
     glNamedBufferData(m_pickingPBO, sizeof(GLuint), nullptr, GL_STREAM_READ);
+}
+
+void Graphics::MakeSSBO()
+{
+    SSBOs.resize(maxSSBObindings);
+    for (GLuint i = 0; i < maxSSBObindings; i++)
+    {
+        glCreateBuffers(1, &SSBOs[i]);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, i, SSBOs[i]);
+    }
+    glCreateBuffers(1, &m_reservoirA);
+    glNamedBufferStorage(m_reservoirA, 1920 * 1080 * 16 * 4, nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glCreateBuffers(1, &m_reservoirB);
+    glNamedBufferStorage(m_reservoirB, 1920 * 1080 * 16 * 4, nullptr, GL_DYNAMIC_STORAGE_BIT);
+}
+
+void Graphics::MakeShadowMap()
+{
+    const int MAX_POINT_LIGHTS = 50;
+
+    glCreateTextures(GL_TEXTURE_CUBE_MAP_ARRAY, 1, &depthCubemapArray);
+    glTextureStorage3D(depthCubemapArray, 1, GL_DEPTH_COMPONENT32F, m_shadowRes, m_shadowRes, MAX_POINT_LIGHTS * 6);
+
+    glTextureParameteri(depthCubemapArray, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(depthCubemapArray, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(depthCubemapArray, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(depthCubemapArray, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(depthCubemapArray, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glCreateFramebuffers(1, &depthFBO);
+    glNamedFramebufferTexture(depthFBO, GL_DEPTH_ATTACHMENT, depthCubemapArray, 0);
+    glNamedFramebufferDrawBuffer(depthFBO, GL_NONE);
+    glNamedFramebufferReadBuffer(depthFBO, GL_NONE);
+}
+
+GLuint Graphics::MakeComputeTexture(GLuint width, GLuint height)
+{
+    GLuint texID;
+    glGenTextures(1, &texID);
+    glBindTexture(GL_TEXTURE_2D, texID);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    m_computeTextureID = texID;
+    return texID;
 }
 
 void Graphics::MakePickingFBO(GLuint l_width, GLuint l_height)
@@ -539,6 +702,8 @@ void Graphics::BeginPickingDraw()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, m_pickingFBO);
     glViewport(0, 0, m_pickingWidth, m_pickingHeight);
+    glDisable(GL_BLEND);
+    glDisable(GL_DITHER);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
@@ -547,6 +712,8 @@ void Graphics::EndPickingDraw(GLuint l_width, GLuint l_height)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, l_width, l_height);
+    glEnable(GL_BLEND);
+    glEnable(GL_DITHER);
 }
 
 void Graphics::ReadPixel(GLuint x, GLuint y)
@@ -564,11 +731,11 @@ void Graphics::ReadPixel(GLuint x, GLuint y)
     m_pickingFence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 }
 
-GLuint Graphics::GetPickingResult()
+GLint Graphics::GetPickingResult()
 {
     if (!m_pickingFence)
     {
-        return 0;
+        return -1;
     }
 
     GLenum syncStatus = glClientWaitSync(m_pickingFence, GL_SYNC_FLUSH_COMMANDS_BIT, 0);
@@ -591,5 +758,48 @@ GLuint Graphics::GetPickingResult()
 
         return objectID;
     }
-    return 0;
+    return -1;
+}
+
+void Graphics::SetSSBOData(GLuint bindingPoint, GLsizeiptr size, const void* data, GLenum usage)
+{
+    if (bindingPoint >= maxSSBObindings)
+    {
+        std::cout << "ERROR::SSBO: Invalid binding point " << bindingPoint << std::endl;
+        return;
+    }
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, SSBOs[bindingPoint]);
+    glNamedBufferData(SSBOs[bindingPoint], size, data, usage);
+}
+
+void Graphics::BindAndSwapReservoirs(GLuint firstBindPoint, GLuint secondBindPoint)
+{
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, firstBindPoint, m_reservoirA);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, secondBindPoint, m_reservoirB);
+    m_reservoirA ^= m_reservoirB;
+    m_reservoirB ^= m_reservoirA;
+    m_reservoirA ^= m_reservoirB;
+}
+
+void Graphics::BeginShadowMapDraw()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, depthFBO);
+    glViewport(0, 0, m_shadowRes, m_shadowRes);
+    glClear(GL_DEPTH_BUFFER_BIT);
+}
+
+void Graphics::EndShadowMapDraw(GLuint l_width, GLuint l_height)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, l_width, l_height);
+}
+
+GLuint Graphics::GetShadowMapTexture() const
+{
+    return depthCubemapArray;
+}
+
+void Graphics::BindComputeTexture()
+{
+    glBindImageTexture(0, m_computeTextureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 }

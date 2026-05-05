@@ -1,0 +1,9 @@
+-1 -0.49061 5.44668 14.2615 0.181192 0.0114575 0.00211095 0.983379 1 1 1 null null null 0 0 0 0 0 0 0 0 0 0 2.8026e-45 0 5.60519e-45 0 1.8357e-43 0 0 0  30 0.05 0.3 0.1 0.05
+0.1 100 7
+1 0 0 0 0 0 0 1 0.2 0.2 0.2 null null Main.txt 1 0.2 0.2 0.2 0.8 0.8 0.8 1 1 1 3.42042 4.59051e-41 7.10497e-15 1.49939e-43 7.10384e-15 -1 -1 -1 
+2 0 0 0 0 0 0 1 0.01 0.01 0.01 debugger_5k.obj: Debugger_5k.obj.mtl:material_0 Main.txt 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+3 -1.04824 -2.24928 -2.94771 0 0 0 1 0.2 0.2 0.2 cube.obj:pCube1 LightSource.mtl:material0 Main.txt 2 0.2 0.2 0.2 0.8 0.8 0.8 1 1 1 1 0.09 0.032 8.43582e-43 1.4013e-45 0 0 0 
+4 0.623945 1.04559 2.44118 0 0 0 1 0.2 0.2 0.2 cube.obj:pCube1 LightSource.mtl:material0 Main.txt 2 0.2 0.2 0.2 0.8 0.8 0.8 1 1 1 1 0.09 0.032 8.43582e-43 1.4013e-45 0 0 0 
+5 0 -5.20833 0 0 0 0 1 56.2544 0.01 57.2959 cube.obj:pCube1 Cube.mtl:material0 Main.txt 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+6 -0.520847 0 -3.64584 0 0 0 1 0.01 0.01 0.01 beethoven_20k.obj: Beethoven_20k.obj.mtl:material_0 Main.txt 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+7 0 -2.08333 0 0 0 0 1 1 1 1 sphere.obj:pSphere1 Container.mtl:material0 Main.txt 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 

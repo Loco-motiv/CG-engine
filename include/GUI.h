@@ -41,7 +41,7 @@ public:
     void OnMouseHold(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) override;
-    void OnTextEntered(sf::Uint32 l_unicode) override;
+    void OnTextEntered(char32_t l_unicode) override;
 
     void Update() override;
 
@@ -78,7 +78,7 @@ public:
     void OnMouseHold(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) override {}
-    void OnTextEntered(sf::Uint32 l_unicode) override {}
+    void OnTextEntered(char32_t l_unicode) override {}
 
     void Update() override;
 
@@ -177,7 +177,7 @@ public:
     void OnMouseHold(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) override;
-    void OnTextEntered(sf::Uint32 l_unicode) override;
+    void OnTextEntered(char32_t l_unicode) override;
 
     void Update() override;
 
@@ -218,7 +218,7 @@ public:
     void OnMouseHold(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) override;
-    void OnTextEntered(sf::Uint32 l_unicode) override;
+    void OnTextEntered(char32_t l_unicode) override;
 
     void Update() override;
 
@@ -262,7 +262,7 @@ public:
     void OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) override;
     void OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) override;
 
-    void OnTextEntered(sf::Uint32 l_unicode) override; // Наш новый метод!
+    void OnTextEntered(char32_t l_unicode) override;
 
     void Update() override;
 

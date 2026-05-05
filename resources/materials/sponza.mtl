@@ -1,0 +1,319 @@
+# Blender MTL File: 'None'
+# Material Count: 25
+
+newmtl Material__25
+Ns 2
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.033105 0.033105 0.033105
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd lion.tga
+norm lion_ddn.tga
+map_Ka lion.tga
+
+newmtl Material__298
+Ns 10.0 
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.040915 0.040915 0.040915
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd background.tga
+norm background_ddn.tga
+map_Ka background.tga
+
+newmtl Material__47
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+
+newmtl Material__57
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd vase_plant.tga
+map_Ka vase_plant.tga
+map_d vase_plant.tga
+
+newmtl arch
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.001000 0.001000 0.001000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_arch_diff.tga
+map_Ka sponza_arch_diff.tga
+norm sponza_arch_ddn.tga
+map_Ks sponza_arch_spec.tga
+
+newmtl bricks
+Ns 1.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.0409150 0.0441580 0.0476420
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd spnza_bricks_a_diff.tga
+norm spnza_bricks_a_ddn.tga
+map_Ka spnza_bricks_a_diff.tga
+map_Ks sponza_bricks_a_spec.tga
+
+newmtl ceiling
+Ns 1.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.042311 0.042311 0.042311
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_ceiling_a_diff.tga
+map_Ka sponza_ceiling_a_diff.tga
+norm sponza_ceiling_a_ddn.tga
+map_Ks sponza_ceiling_a_spec.tga
+
+newmtl chain
+Ns 7.843137
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd chain_texture.tga
+norm chain_texture_ddn.tga
+map_Ka chain_texture.tga
+map_d chain_texture.tga
+
+newmtl column_a
+Ns 10
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.100000 0.100000 0.100000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_column_a_diff.tga
+norm sponza_column_a_ddn.tga
+map_Ka sponza_column_a_diff.tga
+map_Ks sponza_column_a_spec.tga
+
+newmtl column_b
+Ns 10.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.100000 0.100000 0.100000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_column_b_diff.tga
+norm sponza_column_b_ddn.tga
+map_Ka sponza_column_b_diff.tga
+map_Ks sponza_column_b_spec.tga
+
+newmtl column_c
+Ns 10.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.100000 0.100000 0.100000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_column_c_diff.tga
+norm sponza_column_c_ddn.tga
+map_Ka sponza_column_c_diff.tga
+map_Ks sponza_column_c_spec.tga
+
+newmtl details
+Ns 10.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.300000 0.300000 0.300000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_details_diff.tga
+map_Ka sponza_details_diff.tga
+norm sponza_details_ddn.tga
+map_Ks sponza_details_spec.tga
+
+newmtl fabric_a
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.046665 0.046665 0.046665
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_fabric_diff.tga
+map_Ka sponza_fabric_diff.tga
+norm sponza_fabric_ddn.tga
+
+newmtl fabric_c
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.046665 0.046665 0.046665
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_curtain_diff.tga
+map_Ka sponza_curtain_diff.tga
+norm sponza_curtain_ddn.tga
+
+
+newmtl fabric_d
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.046665 0.046665 0.046665
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_fabric_blue_diff.tga
+map_Ka sponza_fabric_blue_diff.tga
+norm sponza_fabric_ddn.tga
+
+
+newmtl fabric_e
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.046665 0.046665 0.046665
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_fabric_green_diff.tga
+map_Ka sponza_fabric_green_diff.tga
+norm sponza_fabric_ddn.tga
+
+
+newmtl fabric_f
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.046665 0.046665 0.046665
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_curtain_green_diff.tga
+map_Ka sponza_curtain_green_diff.tga
+norm sponza_curtain_ddn.tga
+
+newmtl fabric_g
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.046665 0.046665 0.046665
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_curtain_blue_diff.tga
+map_Ka sponza_curtain_blue_diff.tga
+norm sponza_curtain_ddn.tga
+
+
+newmtl flagpole
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.57805 0.57805 0.57805
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_flagpole_diff.tga
+map_Ka sponza_flagpole_diff.tga
+norm sponza_flagpole_ddn.tga
+map_Ks sponza_flagpole_spec.tga
+
+newmtl floor
+Ns 1
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.045996 0.045996 0.045996
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_floor_a_diff.tga
+map_Ka sponza_floor_a_diff.tga
+norm sponza_floor_a_ddn.tga
+map_Ks sponza_floor_a_spec.tga
+
+newmtl leaf
+Ns 10.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.040000 0.040000 0.040000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_thorn_diff.tga
+norm sponza_thorn_ddn.tga
+map_Ka sponza_thorn_diff.tga
+map_Ks sponza_thorn_spec.tga
+map_d sponza_thorn_diff.tga
+
+newmtl roof
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.029557 0.029557 0.029557
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd sponza_roof_diff.tga
+map_Ka sponza_roof_diff.tga
+norm sponza_roof_ddn.tga
+
+newmtl vase
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.040000 0.040000 0.040000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd vase_dif.tga
+map_Ka vase_dif.tga
+norm vase_ddn.tga
+map_Ks vase_spec.tga
+
+newmtl vase_hanging
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.040000 0.040000 0.040000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd vase_hanging.tga
+map_Ka vase_hanging.tga
+norm vase_hanging_ddn.tga
+map_Ks vase_round.tga
+
+newmtl vase_round
+Ns 16.0
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.040000 0.040000 0.040000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd vase_round.tga
+norm vase_round_ddn.tga
+map_Ka vase_round.tga
+map_Ks vase_round.tga

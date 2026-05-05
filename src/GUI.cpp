@@ -63,7 +63,7 @@ void Button::OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse)
 
 void Button::OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) {}
 
-void Button::OnTextEntered(sf::Uint32 l_unicode) {}
+void Button::OnTextEntered(char32_t l_unicode) {}
 
 void Button::Update() {}
 
@@ -90,7 +90,7 @@ void Label::OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) {}
 
 void Label::OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) {}
 
-void Label::OnTextEntered(sf::Uint32 l_unicode) {}
+void Label::OnTextEntered(char32_t l_unicode) {}
 
 void Label::Update()
 {
@@ -188,7 +188,7 @@ void Dropdown::OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse)
 
 void Dropdown::OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) {}
 
-void Dropdown::OnTextEntered(sf::Uint32 l_unicode) {}
+void Dropdown::OnTextEntered(char32_t l_unicode) {}
 
 void Dropdown::Toggle()
 {
@@ -278,7 +278,7 @@ void TextInput::OnMouseHold(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) {}
 void TextInput::OnMouseUp(GLint l_hitboxIndex, sf::Vector2f l_NDCMouse) {}
 void TextInput::OnMouseWheelScroll(GLint l_hitboxIndex, GLfloat l_delta, sf::Vector2f l_NDCMouse) {}
 
-void TextInput::OnTextEntered(sf::Uint32 l_unicode)
+void TextInput::OnTextEntered(char32_t l_unicode)
 {
     if (!m_isActive)
     {
@@ -365,22 +365,24 @@ void WidgetManager::Update()
             MakeLabel("Title", [pickedObj]()
                       { return std::format("Selected Object ID: {}", pickedObj->GetID()); }, "InspectorBox");
 
-            MakeSlider("Pos X", &currentSelection.position.x, -20.0f, 20.0f, "InspectorBox");
-            MakeSlider("Pos Y", &currentSelection.position.y, -20.0f, 20.0f, "InspectorBox");
-            MakeSlider("Pos Z", &currentSelection.position.z, -20.0f, 20.0f, "InspectorBox");
+            MakeSlider("Pos X", &currentSelection.position.x, -200.0f, 200.0f, "InspectorBox");
+            MakeSlider("Pos Y", &currentSelection.position.y, -50.0f, 50.0f, "InspectorBox");
+            MakeSlider("Pos Z", &currentSelection.position.z, -200.0f, 200.0f, "InspectorBox");
 
             MakeSlider("Rot X", &currentSelection.rotation.x, -180.0f, 180.0f, "InspectorBox");
             MakeSlider("Rot Y", &currentSelection.rotation.y, -180.0f, 180.0f, "InspectorBox");
             MakeSlider("Rot Z", &currentSelection.rotation.z, -180.0f, 180.0f, "InspectorBox");
 
-            MakeSlider("Scale X", &currentSelection.scale.x, 0.1f, 10.0f, "InspectorBox");
-            MakeSlider("Scale Y", &currentSelection.scale.y, 0.1f, 10.0f, "InspectorBox");
-            MakeSlider("Scale Z", &currentSelection.scale.z, 0.1f, 10.0f, "InspectorBox");
+            MakeSlider("Scale X", &currentSelection.scale.x, 0.01f, 100.0f, "InspectorBox");
+            MakeSlider("Scale Y", &currentSelection.scale.y, 0.01f, 100.0f, "InspectorBox");
+            MakeSlider("Scale Z", &currentSelection.scale.z, 0.01f, 100.0f, "InspectorBox");
 
             MakeDropdown("Material", currentSelection.materialNames, &currentSelection.currentMaterialIndex, [this, pickedObj]()
                          { pickedObj->SetMaterial(m_sharedContext->materialManager->Get(currentSelection.materialNames[currentSelection.currentMaterialIndex])); }, "InspectorBox");
             MakeDropdown("Mesh", currentSelection.meshNames, &currentSelection.currentMeshIndex, [this, pickedObj]()
                          { pickedObj->SetMesh(m_sharedContext->meshManager->Get(currentSelection.meshNames[currentSelection.currentMeshIndex])); }, "InspectorBox");
+            MakeButton("Delete Object", [this, pickedObj]()
+                       { m_sharedContext->sceneManager->DeleteObject(pickedObj->GetID()); }, "InspectorBox");
         }
     }
     else
@@ -430,7 +432,7 @@ void WidgetManager::DispatchInput(Widget* l_widget, int l_index, const sf::Vecto
 
     input->GUITookInput(true);
 
-    if (input->IsMouseButtonPressed(sf::Mouse::Left))
+    if (input->IsMouseButtonPressed(sf::Mouse::Button::Left))
     {
         l_widget->OnMouseDown(l_index, l_mousePos);
 
@@ -443,11 +445,11 @@ void WidgetManager::DispatchInput(Widget* l_widget, int l_index, const sf::Vecto
             std::rotate(it, it + 1, m_widgets.end());
         }
     }
-    else if (input->IsMouseButtonHeld(sf::Mouse::Left))
+    else if (input->IsMouseButtonHeld(sf::Mouse::Button::Left))
     {
         l_widget->OnMouseHold(l_index, l_mousePos);
     }
-    else if (input->IsMouseButtonReleased(sf::Mouse::Left))
+    else if (input->IsMouseButtonReleased(sf::Mouse::Button::Left))
     {
         l_widget->OnMouseUp(l_index, l_mousePos);
     }
